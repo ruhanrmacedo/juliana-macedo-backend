@@ -4,13 +4,14 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  BeforeInsert,
+  OneToMany,
 } from "typeorm";
 import { Exclude } from "class-transformer";
+import { Post } from "./Post";
 
 export enum UserRole {
-    ADMIN = "admin",
-    USER = "user",
+  ADMIN = "admin",
+  USER = "user",
 }
 
 @Entity("users")
@@ -20,6 +21,9 @@ export class User {
 
   @Column({ unique: true })
   email: string;
+
+  @Column()
+  name: string;
 
   @Column()
   @Exclude()
@@ -33,4 +37,7 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => Post, (post) => post.author)
+  posts: Post[];
 }
