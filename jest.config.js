@@ -3,8 +3,8 @@ module.exports = {
   preset: "ts-jest",
   testEnvironment: "node",
   setupFiles: ["dotenv/config"],
-  globalSetup: "<rootDir>/src/__tests__/setup.ts", // Atualizando o caminho ✅
-  globalTeardown: "<rootDir>/src/__tests__/teardown.ts", // Atualizando o caminho ✅
+  globalSetup: "<rootDir>/src/__tests__/setup.ts", 
+  globalTeardown: "<rootDir>/src/__tests__/teardown.ts", 
   moduleFileExtensions: ["ts", "tsx", "js"],
   testMatch: ["**/__tests__/**/*.test.ts"], 
   transform: {

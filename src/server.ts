@@ -2,12 +2,14 @@ import express from "express";
 import cors from "cors";
 import { AppDataSource } from "./config/ormconfig";
 import authRoutes from "./routes/authRoutes";
+import postRoutes from "./routes/postRoutes";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 app.use("/auth", authRoutes);
+app.use("/post", postRoutes);
 
 AppDataSource.initialize()
   .then(() => {
@@ -16,4 +18,7 @@ AppDataSource.initialize()
       console.log(`🚀 Servidor rodando na porta ${process.env.PORT}`);
     });
   })
-  .catch((err) => console.error("Erro ao conectar no banco:", err));
+  .catch((err) => {
+    console.error("❌ Erro ao conectar no banco:", err);
+    process.exit(1); // Força o processo a encerrar se o banco não conectar
+  });

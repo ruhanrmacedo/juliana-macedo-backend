@@ -32,10 +32,10 @@ export class User {
   @Column({ default: "user" })
   role: UserRole;
 
-  @CreateDateColumn()
+  @Column({ name: "created_at" })
   createdAt: Date;
-
-  @UpdateDateColumn()
+  
+  @Column({ name: "updated_at" })
   updatedAt: Date;
 
   @OneToMany(() => Post, (post) => post.author)

@@ -8,7 +8,7 @@ import {
     JoinColumn,
   } from "typeorm";
   import { User } from "./User";
-  import { PostType } from "./enums/PostType"; // Importando o Enum externo
+  import { PostType } from "./enums/PostType"; 
   
   @Entity("posts")
   export class Post {
@@ -38,10 +38,10 @@ import {
     @JoinColumn({ name: "editedById" })
     editedBy?: User | null;
   
-    @CreateDateColumn()
+    @Column({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
     createdAt: Date;
-  
-    @UpdateDateColumn()
+    
+    @Column({ name: "updated_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
     updatedAt: Date;
   }
   

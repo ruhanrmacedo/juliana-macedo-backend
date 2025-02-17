@@ -19,7 +19,7 @@ describe("PostService", () => {
     await AppDataSource.query(`DELETE FROM users`);
 
     const userRepository = AppDataSource.getRepository(User);
-    
+
     user = userRepository.create({
       email: `test${Date.now()}@example.com`, // Garantindo email único
       name: "Test User",
