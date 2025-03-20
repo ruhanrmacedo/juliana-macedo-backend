@@ -8,6 +8,7 @@ import {
 } from "typeorm";
 import { Exclude } from "class-transformer";
 import { Post } from "./Post";
+import { UserMetrics } from "./UserMetrics";
 
 export enum UserRole {
   ADMIN = "admin",
@@ -32,12 +33,15 @@ export class User {
   @Column({ default: "user" })
   role: UserRole;
 
-  @Column({ name: "created_at" })
+  @CreateDateColumn({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
   
-  @Column({ name: "updated_at" })
+  @UpdateDateColumn({ name: "updated_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
   updatedAt: Date;
 
   @OneToMany(() => Post, (post) => post.author)
   posts: Post[];
+
+  @OneToMany(() => UserMetrics, (metrics) => metrics.user, { cascade: true })
+  metrics: UserMetrics[];
 }
