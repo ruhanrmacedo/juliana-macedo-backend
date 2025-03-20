@@ -7,7 +7,7 @@ import { PostType } from "../models/enums/PostType";
 const postRepository = AppDataSource.getRepository(Post);
 
 export class PostService {
-  // Criar um novo post
+  // Criar um novo post teste
   static async createPost(
     title: string,
     content: string,
