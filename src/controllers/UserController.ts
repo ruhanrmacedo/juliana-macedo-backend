@@ -5,8 +5,8 @@ export class UserController {
   // Rota de Registro
   static async register(req: Request, res: Response) {
     try {
-      const { email, password, role } = req.body;
-      const user = await UserService.createUser(email, password, role);
+      const { email, name, password, role } = req.body;
+      const user = await UserService.createUser(email, name, password, role);
       res.status(201).json(user);
       return;
     } catch (error: any) {

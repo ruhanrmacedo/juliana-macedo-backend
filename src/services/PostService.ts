@@ -1,3 +1,4 @@
+import { Between, ILike } from "typeorm";
 import { AppDataSource } from "../config/ormconfig";
 import { Post } from "../models/Post";
 import { User } from "../models/User";
@@ -118,24 +119,64 @@ export class PostService {
   // Filtrar posts por título, categoria, autor ou data
   static async filterPosts(
     title?: string,
-    category?: PostType,
+    category?: string,
     author?: string,
     date?: string
   ) {
-    const queryBuilder = postRepository.createQueryBuilder("post");
+    console.log("🛠️ Iniciando a montagem da query para filtrar posts...");
 
-    if (title)
-      queryBuilder.andWhere("post.title ILIKE :title", { title: `%${title}%` });
-    if (category)
-      queryBuilder.andWhere("post.postType = :category", { category });
+    const query = postRepository
+      .createQueryBuilder("post")
+      .leftJoinAndSelect("post.author", "author")
+      .where("post.isActive = :isActive", { isActive: true });
+
+    console.log("🟢 Query inicializada!");
+
+    // 🔍 Filtrar por título
+    if (title) {
+      console.log("📌 Filtrando por título:", title);
+      query.andWhere("post.title ILIKE :title", { title: `%${title}%` });
+    }
+
+    // 🔍 Filtrar por categoria
+    if (category) {
+      console.log("📌 Filtrando por categoria:", category);
+      const enumValue = Object.values(PostType).find(
+        (e) => e.toLowerCase() === category.toLowerCase()
+      );
+      if (!enumValue) {
+        console.log("❌ Categoria inválida:", category);
+        throw new Error(`Categoria inválida: ${category}`);
+      }
+      query.andWhere(`post."postType" = :category`, { category: enumValue });
+    }
+
+    // 🔍 Filtrar por autor (name)
     if (author) {
-      queryBuilder.leftJoinAndSelect("post.author", "author");
-      queryBuilder.andWhere("author.email ILIKE :author", {
-        author: `%${author}%`,
+      console.log("🔍 Buscando posts pelo autor:", author);
+      query.andWhere("author.name ILIKE :authorName", { authorName: `%${author}%` });
+    }
+
+    // 🔍 Filtrar por data
+    if (date) {
+      console.log("📌 Filtrando por data:", date);
+      const startDate = new Date(date);
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+      query.andWhere("post.created_at BETWEEN :startDate AND :endDate", {
+        startDate,
+        endDate,
       });
     }
-    if (date) queryBuilder.andWhere("DATE(post.createdAt) = :date", { date });
 
-    return await queryBuilder.getMany();
+    // 🔎 Log da query final
+    const [sqlQuery, parameters] = query.getQueryAndParameters();
+    console.log("📝 Query SQL Final:", sqlQuery);
+    console.log("📊 Parâmetros da Query:", parameters);
+
+    const result = await query.getMany();
+    console.log("✅ Posts retornados:", result.length);
+
+    return result;
   }
 }

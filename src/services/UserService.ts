@@ -8,13 +8,14 @@ const userRepository = AppDataSource.getRepository(User);
 
 export class UserService {
   // Criar usuário (registro)
-  static async createUser(email: string, password: string, role: string = "user") {
+  static async createUser(email: string, name: string, password: string, role: string = "user") {
     const existingUser = await userRepository.findOne({ where: { email } });
     if (existingUser) throw new Error("Email já está em uso");
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = userRepository.create({
         email,
+        name,
         password: hashedPassword,
         role: role as UserRole,
       });
