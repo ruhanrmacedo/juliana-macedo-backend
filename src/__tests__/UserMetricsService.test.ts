@@ -13,6 +13,7 @@ afterAll(async () => {
 
 describe("UserMetricsService", () => {
   let user: User;
+  let admin: User;
 
   beforeEach(async () => {
     await AppDataSource.query(`DELETE FROM user_metrics`);
@@ -20,14 +21,23 @@ describe("UserMetricsService", () => {
 
     const userRepository = AppDataSource.getRepository(User);
 
+    // Criando usuário comum
     user = userRepository.create({
       email: `test${Date.now()}@example.com`,
       name: "Test User",
       password: "password",
       role: UserRole.USER,
     });
-
     await userRepository.save(user);
+
+    // Criando usuário admin
+    admin = userRepository.create({
+      email: `admin${Date.now()}@example.com`,
+      name: "Admin User",
+      password: "adminpass",
+      role: UserRole.ADMIN,
+    });
+    await userRepository.save(admin);
   });
 
   it("Deve criar métricas do usuário com sucesso", async () => {
@@ -57,11 +67,11 @@ describe("UserMetricsService", () => {
 
     await UserMetricsService.createUserMetrics(
       user.id,
-      72, // Alteração no peso
-      1.75,
-      25,
-      "M",
-      NivelAtividade.MODERADAMENTE_ATIVO
+      72,
+      null as any,
+      null as any,
+      null as any,
+      null as any
     );
 
     const metrics = await UserMetricsService.getUserMetrics(user.id);
@@ -85,7 +95,46 @@ describe("UserMetricsService", () => {
   });
 
   it("Deve calcular corretamente o TDEE", async () => {
-    const tdee = UserMetricsService.calculateTDEE(70, 175, 25, "M", NivelAtividade.MODERADAMENTE_ATIVO);
-    expect(tdee).toBeGreaterThan(2000); // TDEE esperado para esse perfil é entre 2500-2700 kcal
+    const tdee = UserMetricsService.calculateTDEE(
+      70,
+      1.75,
+      25,
+      "M",
+      NivelAtividade.MODERADAMENTE_ATIVO
+    );
+    expect(tdee).toBeGreaterThan(2000);
+  });
+
+  it("Deve permitir que um ADMIN registre métricas para outro usuário", async () => {
+    const metrics = await UserMetricsService.createUserMetrics(
+      user.id,
+      68,
+      1.73,
+      28,
+      "F",
+      NivelAtividade.LEVEMENTE_ATIVO
+    );
+
+    expect(metrics.user.id).toBe(user.id);
+    expect(metrics.altura).toBe(1.73);
+    expect(metrics.peso).toBe(68);
+  });
+
+  it("Deve lançar erro se faltar dados para calcular IMC", () => {
+    expect(() => {
+      UserMetricsService.validateIMCData({ peso: null, altura: 1.75 } as any);
+    }).toThrow("Peso e altura são necessários para calcular o IMC.");
+  });
+
+  it("Deve lançar erro se faltar dados para calcular TDEE", () => {
+    expect(() => {
+      UserMetricsService.validateTDEEData({
+        peso: 70,
+        altura: 1.75,
+        idade: null,
+        sexo: "M",
+        nivelAtividade: NivelAtividade.MODERADAMENTE_ATIVO,
+      } as any);
+    }).toThrow("Dados insuficientes para calcular o TDEE.");
   });
 });

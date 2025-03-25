@@ -10,4 +10,9 @@ router.post("/metrics", authMiddleware, UserMetricsController.createOrUpdateUser
 // Rota para obter as métricas do usuário
 router.get("/metrics", authMiddleware, UserMetricsController.getUserMetrics);
 
+router.get("/metrics/imc", authMiddleware, UserMetricsController.getIMC);
+router.get("/metrics/tdee", authMiddleware, UserMetricsController.getTDEE);
+router.get("/metrics/macronutrients", authMiddleware, UserMetricsController.getMacronutrients);
+
+
 export default router;

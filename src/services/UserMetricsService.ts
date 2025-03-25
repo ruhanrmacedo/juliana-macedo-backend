@@ -30,7 +30,7 @@ export class UserMetricsService {
         // Se o usuário não alterar altura, idade, etc., manter os valores antigos
         const newMetrics = userMetricsRepository.create({
             user,
-            peso,
+            peso: peso || lastMetrics?.peso,
             altura: altura || lastMetrics?.altura,
             idade: idade || lastMetrics?.idade,
             sexo: sexo || lastMetrics?.sexo,
@@ -39,11 +39,6 @@ export class UserMetricsService {
         });
 
         await userMetricsRepository.save(newMetrics);
-
-        // Calcular TDEE (Gasto Energético Diário) baseado no nível de atividade
-        const tdee = this.calculateTDEE(peso, altura, idade, sexo, nivelAtividade);
-        console.log("Gasto Energético Diário (TDEE):", tdee);
-
         return newMetrics;
     }
 
@@ -52,6 +47,22 @@ export class UserMetricsService {
             where: { user: { id: userId } },
             order: { createdAt: "DESC" },
         });
+    }
+
+    static validateIMCData(metrics: UserMetrics) {
+        if (!metrics.peso || !metrics.altura) {
+            throw new Error("Peso e altura são necessários para calcular o IMC.");
+        }
+    }
+
+    static validateTDEEData(metrics: UserMetrics) {
+        if (!metrics.peso || !metrics.altura || !metrics.idade || !metrics.sexo || !metrics.nivelAtividade) {
+            throw new Error("Dados insuficientes para calcular o TDEE.");
+        }
+    }
+
+    static validateMacronutrientsData(metrics: UserMetrics) {
+        this.validateTDEEData(metrics); // Depende do TDEE
     }
 
     // Multiplicador de acordo com o nível de atividade
@@ -73,12 +84,9 @@ export class UserMetricsService {
 
     // Cálculo do Gasto Energético Diário (TDEE)
     static calculateTDEE(peso: number, altura: number, idade: number, sexo: string, nivelAtividade: NivelAtividade): number {
-        let tmb: number;
-        if (sexo === "M") {
-            tmb = 66.5 + (13.75 * peso) + (5.003 * altura * 100) - (6.75 * idade);
-        } else {
-            tmb = 655 + (9.563 * peso) + (1.850 * altura * 100) - (4.676 * idade);
-        }
+        let tmb = sexo === "M"
+            ? 66.5 + 13.75 * peso + 5.003 * altura * 100 - 6.75 * idade
+            : 655 + 9.563 * peso + 1.850 * altura * 100 - 4.676 * idade;
 
         const multiplicadores: Record<NivelAtividade, number> = {
             [NivelAtividade.SEDENTARIO]: 1.2,

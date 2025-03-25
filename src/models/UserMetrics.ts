@@ -37,6 +37,5 @@ export class UserMetrics {
     gorduraCorporal?: number;
 
     @CreateDateColumn({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
-    @JoinColumn({ name: "created_at"})
     createdAt: Date;
 }
