@@ -65,7 +65,8 @@ export class UserMetricsController {
 
       UserMetricsService.validateIMCData(last);
       const imc = UserMetricsService.calculateIMC(last.peso, last.altura);
-      res.json({ imc: imc.toFixed(2) });
+      const classificacao = UserMetricsService.classifyIMC(imc);
+      res.json({ imc: imc.toFixed(2), classificacao });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -87,7 +88,8 @@ export class UserMetricsController {
 
       UserMetricsService.validateTDEEData(last);
       const tdee = UserMetricsService.calculateTDEE(last.peso, last.altura, last.idade, last.sexo, last.nivelAtividade);
-      res.json({ tdee: tdee.toFixed(2) });
+      const mensagem = UserMetricsService.interpretTDEE(tdee);
+      res.json({ tdee: tdee.toFixed(2), mensagem });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -111,11 +113,64 @@ export class UserMetricsController {
       UserMetricsService.validateMacronutrientsData(last);
       const tdee = UserMetricsService.calculateTDEE(last.peso, last.altura, last.idade, last.sexo, last.nivelAtividade);
       const macros = UserMetricsService.calculateMacronutrients(tdee);
+      const resultado = UserMetricsService.interpretMacronutrients(macros);
 
       res.json({
-        proteinas: `${macros.proteinas.toFixed(1)}g`,
-        carboidratos: `${macros.carboidratos.toFixed(1)}g`,
-        gorduras: `${macros.gorduras.toFixed(1)}g`,
+        proteinas: `${resultado.proteinas.toFixed(1)}g`,
+        carboidratos: `${resultado.carboidratos.toFixed(1)}g`,
+        gorduras: `${resultado.gorduras.toFixed(1)}g`,
+        mensagem: resultado.mensagem
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+
+  }
+
+  static async getTMB(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(404).json({ error: "Usuário não encontrado" });
+        return;
+      } 
+
+      const [last] = await UserMetricsService.getUserMetrics(userId);
+      if (!last) {
+        res.status(404).json({ error: "Nenhuma métrica encontrada" });
+        return;
+      }
+
+      UserMetricsService.validateTMBData(last);
+      const tmb = UserMetricsService.calculateTMB(last.peso, last.altura, last.idade, last.sexo);
+      const mensagem = UserMetricsService.interpretTMB(tmb);
+      res.json({ tmb: tmb.toFixed(2), mensagem });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async getDailyWaterIntake(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(404).json({ error: "Usuário não encontrado" });
+        return;
+      }  
+      const [last] = await UserMetricsService.getUserMetrics(userId);
+      if (!last) {
+        res.status(404).json({ error: "Nenhuma métrica encontrada" });
+        return;
+      }
+
+      UserMetricsService.validateWaterData(last);
+      const waterMl = UserMetricsService.calculateDailyWater(last.peso);
+      const mensagem = UserMetricsService.interpretWaterIntake(waterMl);
+
+      res.json({
+        consumoDiarioAguaMl: waterMl.toFixed(0),
+        consumoDiarioAguaLitros: (waterMl / 1000).toFixed(2) + "L",
+        mensagem
       });
     } catch (error: any) {
       res.status(400).json({ error: error.message });

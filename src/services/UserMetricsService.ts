@@ -65,6 +65,35 @@ export class UserMetricsService {
         this.validateTDEEData(metrics); // Depende do TDEE
     }
 
+    static classifyIMC(imc: number): string {
+        if (imc < 18.5) return "Abaixo do peso";
+        if (imc < 24.9) return "Peso normal";
+        if (imc < 29.9) return "Sobrepeso";
+        if (imc < 34.9) return "Obesidade grau 1";
+        if (imc < 39.9) return "Obesidade grau 2";
+        return "Obesidade grau 3";
+    }
+
+    static interpretTDEE(tdee: number): string {
+        return `Seu gasto calórico diário estimado é de ${tdee.toFixed(0)} kcal. Use esse valor como base para definir sua meta (ex: emagrecimento, manutenção ou ganho de massa).`;
+    }
+
+    static interpretMacronutrients(macros: { proteinas: number, carboidratos: number, gorduras: number }) {
+        return {
+            ...macros,
+            mensagem: "Distribuição sugerida com base em 30% proteínas, 50% carboidratos e 20% gorduras."
+        };
+    }
+
+    static interpretTMB(tmb: number): string {
+        return `Sua Taxa Metabólica Basal estimada é de ${tmb.toFixed(0)} kcal. Essa é a energia mínima necessária para manter funções vitais em repouso.`;
+    }
+    
+    static interpretWaterIntake(waterMl: number): string {
+        const litros = (waterMl / 1000).toFixed(2);
+        return `Você deve consumir aproximadamente ${litros} litros de água por dia com base no seu peso corporal.`;
+    }
+
     // Multiplicador de acordo com o nível de atividade
     private static getActivityMultiplier(nivelAtividade: NivelAtividade): number {
         const multiplicadores: Record<NivelAtividade, number> = {
@@ -106,5 +135,28 @@ export class UserMetricsService {
             carboidratos: (tdee * 0.5) / 4, // 50% de carboidratos
             gorduras: (tdee * 0.2) / 9, // 20% de gorduras
         };
+    }
+
+
+    static validateTMBData(metrics: UserMetrics) {
+        if (!metrics.peso || !metrics.altura || !metrics.idade || !metrics.sexo) {
+            throw new Error("Dados insuficientes para calcular a TMB.");
+        }
+    }
+
+    static calculateTMB(peso: number, altura: number, idade: number, sexo: string): number {
+        if (sexo === "M") {
+            return 66 + (13.7 * peso) + (5 * altura * 100) - (6.8 * idade);
+        } else {
+            return 655 + (9.6 * peso) + (1.8 * altura * 100) - (4.7 * idade);
+        }
+    }
+
+    static validateWaterData(metrics: UserMetrics) {
+        if (!metrics.peso) throw new Error("Peso é necessário para calcular o consumo de água.");
+    }
+
+    static calculateDailyWater(peso: number): number {
+        return peso * 35; // ml por dia
     }
 }
