@@ -4,6 +4,8 @@ import { AppDataSource } from "./config/ormconfig";
 import authRoutes from "./routes/authRoutes";
 import postRoutes from "./routes/postRoutes";
 import userMetricsRoutes from "./routes/userMetricsRoutes";
+import commentRoutes from "./routes/comment.routes";
+import postLikeRoutes from "./routes/postLike.routes";
 
 const app = express();
 app.use(cors());
@@ -12,6 +14,8 @@ app.use(express.json());
 app.use("/auth", authRoutes);
 app.use("/post", postRoutes);
 app.use("/metrics", userMetricsRoutes);
+app.use("/comments", commentRoutes);
+app.use("/likes", postLikeRoutes);
 
 AppDataSource.initialize()
   .then(() => {

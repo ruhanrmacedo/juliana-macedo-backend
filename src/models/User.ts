@@ -9,6 +9,7 @@ import {
 import { Exclude } from "class-transformer";
 import { Post } from "./Post";
 import { UserMetrics } from "./UserMetrics";
+import { Comment } from "./Comment";
 
 export enum UserRole {
   ADMIN = "admin",
@@ -35,7 +36,7 @@ export class User {
 
   @CreateDateColumn({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
-  
+
   @UpdateDateColumn({ name: "updated_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
   updatedAt: Date;
 
@@ -44,4 +45,7 @@ export class User {
 
   @OneToMany(() => UserMetrics, (metrics) => metrics.user, { cascade: true })
   metrics: UserMetrics[];
+
+  @OneToMany(() => Comment, (comment) => comment.user)
+  comments: Comment[];
 }
