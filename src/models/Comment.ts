@@ -25,6 +25,6 @@ export class Comment {
   @UpdateDateColumn({ name: "updated_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
   editedAt: Date;
 
-  @Column({ default: false })
+  @Column({ name: "is_edited", default: false })
   isEdited: boolean;
 }
