@@ -2,8 +2,8 @@ import express from "express";
 import cors from "cors";
 import { AppDataSource } from "./config/ormconfig";
 import authRoutes from "./routes/authRoutes";
-import postRoutes from "./routes/postRoutes";
-import userMetricsRoutes from "./routes/userMetricsRoutes";
+import postRoutes from "./routes/post.routes";
+import userMetricsRoutes from "./routes/userMetrics.routes";
 import commentRoutes from "./routes/comment.routes";
 import postLikeRoutes from "./routes/postLike.routes";
 

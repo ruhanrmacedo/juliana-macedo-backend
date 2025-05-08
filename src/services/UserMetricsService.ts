@@ -157,6 +157,6 @@ export class UserMetricsService {
     }
 
     static calculateDailyWater(peso: number): number {
-        return peso * 35; // ml por dia
+        return peso * 45; // ml por dia
     }
 }

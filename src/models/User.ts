@@ -10,6 +10,9 @@ import { Exclude } from "class-transformer";
 import { Post } from "./Post";
 import { UserMetrics } from "./UserMetrics";
 import { Comment } from "./Comment";
+import { UserPhone } from "./user-info/UserPhone";
+import { UserAddress } from "./user-info/UserAddress";
+import { UserEmail } from "./user-info/UserEmail";
 
 export enum UserRole {
   ADMIN = "admin",
@@ -48,4 +51,13 @@ export class User {
 
   @OneToMany(() => Comment, (comment) => comment.user)
   comments: Comment[];
+
+  @OneToMany(() => UserPhone, (phone) => phone.user, { cascade: true })
+  phones: UserPhone[];
+
+  @OneToMany(() => UserAddress, (address) => address.user, { cascade: true })
+  addresses: UserAddress[];
+
+  @OneToMany(() => UserEmail, (email) => email.user, { cascade: true })
+  emails: UserEmail[];
 }
