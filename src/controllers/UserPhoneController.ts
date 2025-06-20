@@ -24,7 +24,7 @@ export class UserPhoneController {
             if (!userId) {
                 res.status(401).json({ error: "Usuário não autenticado" });
                 return;
-            }  
+            }
 
             const phones = await UserPhoneService.getPhones(userId);
             res.json(phones);
@@ -40,10 +40,22 @@ export class UserPhoneController {
             if (!userId) {
                 res.status(401).json({ error: "Usuário não autenticado" });
                 return;
-            }  
+            }
 
             const result = await UserPhoneService.deletePhone(Number(id), userId);
             res.json(result);
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
+        }
+    }
+
+    static async update(req: Request, res: Response) {
+        try {
+            const userId = req.user!.id;
+            const id = parseInt(req.params.id);
+            const { number } = req.body;
+            const phone = await UserPhoneService.updatePhone(id, userId, number);
+            res.json(phone);
         } catch (error: any) {
             res.status(400).json({ error: error.message });
         }

@@ -8,5 +8,6 @@ router.use(authMiddleware);
 router.post("/", UserEmailController.add);
 router.get("/", UserEmailController.list);
 router.delete("/:id", UserEmailController.remove);
+router.put("/:id", UserEmailController.update);
 
 export default router;

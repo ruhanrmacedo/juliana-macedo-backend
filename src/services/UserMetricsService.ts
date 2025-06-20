@@ -27,15 +27,25 @@ export class UserMetricsService {
             order: { createdAt: "DESC" },
         });
 
+        const parsedPeso = parseFloat(String(peso).replace(",", "."));
+        const parsedAltura = parseFloat(String(altura).replace(",", "."));
+        let parsedGordura: number | undefined = undefined;
+
+        if (gorduraCorporal !== undefined && gorduraCorporal !== null) {
+            const strValue = String(gorduraCorporal).replace(",", ".");
+            const numValue = parseFloat(strValue);
+            if (!isNaN(numValue)) parsedGordura = numValue;
+        }
+
         // Se o usuário não alterar altura, idade, etc., manter os valores antigos
         const newMetrics = userMetricsRepository.create({
             user,
-            peso: peso || lastMetrics?.peso,
-            altura: altura || lastMetrics?.altura,
+            peso: parsedPeso || lastMetrics?.peso,
+            altura: parsedAltura || lastMetrics?.altura,
             idade: idade || lastMetrics?.idade,
             sexo: sexo || lastMetrics?.sexo,
             nivelAtividade: nivelAtividade || lastMetrics?.nivelAtividade,
-            gorduraCorporal: gorduraCorporal || lastMetrics?.gorduraCorporal,
+            gorduraCorporal: parsedGordura ?? lastMetrics?.gorduraCorporal,
         });
 
         await userMetricsRepository.save(newMetrics);
@@ -88,7 +98,7 @@ export class UserMetricsService {
     static interpretTMB(tmb: number): string {
         return `Sua Taxa Metabólica Basal estimada é de ${tmb.toFixed(0)} kcal. Essa é a energia mínima necessária para manter funções vitais em repouso.`;
     }
-    
+
     static interpretWaterIntake(waterMl: number): string {
         const litros = (waterMl / 1000).toFixed(2);
         return `Você deve consumir aproximadamente ${litros} litros de água por dia com base no seu peso corporal.`;

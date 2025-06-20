@@ -24,4 +24,17 @@ export class UserPhoneService {
     await phoneRepository.remove(phone);
     return { message: "Telefone removido com sucesso" };
   }
+
+  static async updatePhone(id: number, userId: number, newNumber: string) {
+    const phone = await phoneRepository.findOne({
+      where: { id, user: { id: userId } },
+    });
+  
+    if (!phone) {
+      throw new Error("Telefone não encontrado ou não pertence ao usuário");
+    }
+  
+    phone.number = newNumber.trim();
+    return await phoneRepository.save(phone);
+  }
 }

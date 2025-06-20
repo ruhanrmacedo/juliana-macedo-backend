@@ -27,4 +27,30 @@ export class UserAddressService {
         await addressRepo.remove(address);
         return { message: "Endereço removido com sucesso" };
     }
+
+    static async updateAddress(
+        id: number,
+        userId: number,
+        newData: {
+          street?: string;
+          city?: string;
+          state?: string;
+          postalCode?: string;
+          country?: string;
+        }
+      ) {
+        const address = await addressRepo.findOne({
+          where: { id, user: { id: userId } },
+        });
+      
+        if (!address) {
+          throw new Error("Endereço não encontrado ou não pertence ao usuário");
+        }
+      
+        Object.assign(address, {
+          ...newData,
+        });
+      
+        return await addressRepo.save(address);
+      }
 }

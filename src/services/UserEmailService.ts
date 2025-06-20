@@ -27,4 +27,17 @@ export class UserEmailService {
         await emailRepository.remove(email);
         return { message: "Email removido com sucesso" };
     }
+
+    static async updateEmail(id: number, userId: number, newEmail: string) {
+        const email = await emailRepository.findOne({
+          where: { id, user: { id: userId } },
+        });
+      
+        if (!email) {
+          throw new Error("Email não encontrado ou não pertence ao usuário");
+        }
+      
+        email.email = newEmail.trim().toLowerCase();
+        return await emailRepository.save(email);
+      }
 }

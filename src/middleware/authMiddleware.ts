@@ -5,6 +5,7 @@ interface DecodedToken {
   id: number;
   email: string;
   role: string;
+  name: string;
 }
 
 declare module "express-serve-static-core" {

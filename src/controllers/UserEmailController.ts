@@ -9,7 +9,7 @@ export class UserEmailController {
             if (!userId) {
                 res.status(401).json({ error: "Usuário não autenticado" });
                 return;
-            }  
+            }
 
             const emailSaved = await UserEmailService.addEmail(userId, email);
             res.status(201).json(emailSaved);
@@ -24,7 +24,7 @@ export class UserEmailController {
             if (!userId) {
                 res.status(401).json({ error: "Usuário não autenticado" });
                 return;
-            }  
+            }
 
             const emails = await UserEmailService.getEmails(userId);
             res.json(emails);
@@ -40,10 +40,22 @@ export class UserEmailController {
             if (!userId) {
                 res.status(401).json({ error: "Usuário não autenticado" });
                 return;
-            } 
+            }
 
             const result = await UserEmailService.deleteEmail(Number(id), userId);
             res.json(result);
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
+        }
+    }
+
+    static async update(req: Request, res: Response) {
+        try {
+            const userId = req.user!.id;
+            const id = parseInt(req.params.id);
+            const { email } = req.body;
+            const updated = await UserEmailService.updateEmail(id, userId, email);
+            res.json(updated);
         } catch (error: any) {
             res.status(400).json({ error: error.message });
         }

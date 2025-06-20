@@ -176,4 +176,21 @@ export class UserMetricsController {
       res.status(400).json({ error: error.message });
     }
   }
+
+  static async checkIfHasMetrics(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(400).json({ error: "Usuário não encontrado" });
+        return;
+      }
+
+      const metrics = await UserMetricsService.getUserMetrics(userId);
+      const hasMetrics = metrics.length > 0;
+      res.json({ hasMetrics });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }

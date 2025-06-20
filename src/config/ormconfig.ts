@@ -14,6 +14,6 @@ export const AppDataSource = new DataSource({
   database: isTestEnv ? process.env.DB_TEST_NAME : process.env.DB_NAME,
   synchronize: false,
   logging: true,
-  entities: ["src/models/**/*.ts"],
-  migrations: ["src/migrations/*.ts"],
+  entities: [isTestEnv ? "src/models/**/*.ts" : "dist/models/**/*.js"],
+  migrations: [isTestEnv ? "src/migrations/*.ts" : "dist/migrations/*.js"],
 });
