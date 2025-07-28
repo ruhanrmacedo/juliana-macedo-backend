@@ -37,6 +37,12 @@ export class User {
   @Column({ default: "user" })
   role: UserRole;
 
+  @Column({ unique: true })
+  cpf: string;
+
+  @Column({ type: "date", name: "data_nascimento" })
+  dataNascimento: Date;
+
   @CreateDateColumn({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;
 

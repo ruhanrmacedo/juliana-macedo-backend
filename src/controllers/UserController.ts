@@ -9,8 +9,10 @@ export class UserController {
   // Rota de Registro
   static async register(req: Request, res: Response) {
     try {
-      const { email, name, password, role } = req.body;
-      const user = await UserService.createUser(email, name, password, role);
+      const { email, name, password, role, cpf, dataNascimento } = req.body;
+      const cleanCpf = cpf.replace(/[^\d]/g, "");
+      const parsedDataNascimento = new Date(dataNascimento);
+      const user = await UserService.createUser(email, name, password, role, cleanCpf, parsedDataNascimento);
       res.status(201).json(user);
       return;
     } catch (error: any) {
@@ -60,6 +62,8 @@ export class UserController {
         name,
         email,
         password,
+        cpf,
+        dataNascimento,
         phone,
         address,
         extraPhones,
@@ -94,11 +98,16 @@ export class UserController {
         return;
       }
 
+      const cleanCpf = cpf.replace(/[^\d]/g, "");
+      const parsedDataNascimento = new Date(dataNascimento);
+
       // Cria o usuário normalmente
       const user = await UserService.registerFullUser({
         name,
         email,
         password,
+        cpf: cleanCpf,
+        dataNascimento: parsedDataNascimento,
         phone,
         address,
         extraPhones,
@@ -117,25 +126,25 @@ export class UserController {
       res.status(401).json({ error: "Não autenticado" });
       return;
     }
-  
+
     try {
       const userRepo = AppDataSource.getRepository(User);
       const user = await userRepo.findOne({
         where: { id: req.user.id },
       });
-  
+
       if (!user) {
         res.status(404).json({ error: "Usuário não encontrado" });
         return;
       }
-      
+
       console.log("Rota /auth/me respondeu com:", {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
       });
-      
+
       res.json({
         id: user.id,
         name: user.name,
@@ -146,6 +155,38 @@ export class UserController {
     } catch (err) {
       res.status(500).json({ error: "Erro ao buscar usuário" });
       return;
+    }
+  }
+
+  // Rota para recuperar e-mail pelo CPF e data de nascimento
+  static async recoverEmail(req: Request, res: Response) {
+    try {
+      const { cpf, dataNascimento, showFullEmail = false } = req.body;
+
+      if (!cpf || !dataNascimento) {
+        res.status(400).json({ error: "CPF e data de nascimento são obrigatórios" });
+        return;
+      }
+
+      const result = await UserService.recoverEmailByCpfAndNascimento(
+        cpf,
+        dataNascimento,
+        showFullEmail
+      );
+
+      res.status(200).json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      const result = await UserService.resetPasswordByEmail(email);
+      res.status(200).json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   }
 }
