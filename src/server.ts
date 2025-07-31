@@ -6,6 +6,9 @@ import postRoutes from "./routes/post.routes";
 import userMetricsRoutes from "./routes/userMetrics.routes";
 import commentRoutes from "./routes/comment.routes";
 import postLikeRoutes from "./routes/postLike.routes";
+import userPhoneRoutes from "./routes/userPhone.routes";
+import userEmailRoutes from "./routes/userEmail.routes";
+import userAddressRoutes from "./routes/userAddress.routes";
 
 const app = express();
 app.use(cors());
@@ -16,6 +19,9 @@ app.use("/post", postRoutes);
 app.use("/metrics", userMetricsRoutes);
 app.use("/comments", commentRoutes);
 app.use("/likes", postLikeRoutes);
+app.use("/phones", userPhoneRoutes);
+app.use("/emails", userEmailRoutes);
+app.use("/addresses", userAddressRoutes);
 
 AppDataSource.initialize()
   .then(() => {

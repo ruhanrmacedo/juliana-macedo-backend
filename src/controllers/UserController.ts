@@ -121,6 +121,51 @@ export class UserController {
     }
   }
 
+  // Atualizar dados do usuário autenticado
+  static async updateProfile(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        res.status(401).json({ error: "Não autenticado" });
+        return;
+      }
+
+      const { name, email, cpf, dataNascimento } = req.body;
+
+      const userRepo = AppDataSource.getRepository(User);
+      const user = await userRepo.findOneBy({ id: userId });
+
+      if (!user) {
+        res.status(404).json({ error: "Usuário não encontrado" });
+        return;
+      }
+
+      if (name) user.name = name;
+      if (email) user.email = email.toLowerCase();
+      if (cpf) user.cpf = cpf.replace(/[^\d]/g, "");
+      if (dataNascimento) {
+        const parsedDate = new Date(dataNascimento);
+        if (isNaN(parsedDate.getTime())) {
+          res.status(400).json({ error: "Data de nascimento inválida" });
+          return;
+        }
+        user.dataNascimento = parsedDate;
+      }
+
+      const updatedUser = await userRepo.save(user);
+
+      res.json({
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        cpf: updatedUser.cpf,
+        dataNascimento: updatedUser.dataNascimento,
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
   static async me(req: Request, res: Response) {
     if (!req.user) {
       res.status(401).json({ error: "Não autenticado" });
@@ -131,6 +176,7 @@ export class UserController {
       const userRepo = AppDataSource.getRepository(User);
       const user = await userRepo.findOne({
         where: { id: req.user.id },
+        relations: ["phones", "emails", "addresses"],
       });
 
       if (!user) {
@@ -138,20 +184,17 @@ export class UserController {
         return;
       }
 
-      console.log("Rota /auth/me respondeu com:", {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      });
-
       res.json({
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        cpf: user.cpf,
+        dataNascimento: user.dataNascimento,
+        phones: user.phones,
+        addresses: user.addresses,
+        emails: user.emails,
       });
-      return;
     } catch (err) {
       res.status(500).json({ error: "Erro ao buscar usuário" });
       return;
