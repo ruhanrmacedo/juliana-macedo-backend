@@ -14,6 +14,11 @@ export class UserMetricsController {
         return;
       }
 
+      if (!Object.values(NivelAtividade).includes(nivelAtividade)) {
+        res.status(400).json({ error: "Nível de atividade inválido." });
+        return;
+      }
+
       // Chama o serviço para criar ou atualizar as métricas
       const metrics = await UserMetricsService.createUserMetrics(
         userId,
