@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { PostService } from "../services/PostService";
 import { PostType } from "../models/enums/PostType";
+import { cloudinary } from "../config/cloudinary";
+import { UploadApiResponse, UploadApiErrorResponse } from "cloudinary";
 
 export class PostController {
   static async createPost(req: Request, res: Response) {
@@ -12,17 +14,45 @@ export class PostController {
         return;
       }
 
-      const authorId = req.user.id;
+      let finalImageUrl: string | undefined = imageUrl;
+
+      if (req.file) {
+        const fileBuffer = req.file.buffer;
+
+        const uploaded: UploadApiResponse = await new Promise(
+          (resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: "posts", resource_type: "image" },
+              (
+                error: UploadApiErrorResponse | undefined,
+                result: UploadApiResponse | undefined
+              ) => {
+                if (error || !result) return reject(error);
+                resolve(result);
+              }
+            );
+            stream.end(fileBuffer);
+          }
+        );
+
+        finalImageUrl = uploaded.secure_url;
+      }
+
       const post = await PostService.createPost(
         title,
         content,
         postType as PostType,
-        authorId,
-        imageUrl
+        req.user.id,
+        finalImageUrl
       );
+
       res.status(201).json(post);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      return;
+    } catch (err: unknown) {
+      console.error("Erro no createPost:", err);
+      const message = err instanceof Error ? err.message : "Erro inesperado";
+      res.status(400).json({ error: message });
+      return;
     }
   }
 
@@ -38,10 +68,19 @@ export class PostController {
   static async getPostById(req: Request, res: Response) {
     try {
       const postId = Number(req.params.id);
+      if (!postId || isNaN(postId)) {
+        res.status(400).json({ error: "ID do post inválido" });
+        return;
+      }
+
+      await PostService.incrementPostViews(postId);
       const post = await PostService.getPostById(postId);
       res.json(post);
+      return;
     } catch (error: any) {
+      console.error("Erro no getPostById:", error);
       res.status(400).json({ error: error.message });
+      return;
     }
   }
 
@@ -53,20 +92,53 @@ export class PostController {
       }
 
       const postId = Number(req.params.id);
-      const userId = req.user.id;
+      if (!postId || isNaN(postId)) {
+        res.status(400).json({ error: "ID do post inválido" });
+        return;
+      }
+
       const { title, content, postType, imageUrl } = req.body;
+
+      let finalImageUrl: string | undefined = imageUrl;
+
+      if (req.file) {
+        const fileBuffer = req.file.buffer;
+
+        const uploaded: UploadApiResponse = await new Promise(
+          (resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              { folder: "posts", resource_type: "image" },
+              (
+                error: UploadApiErrorResponse | undefined,
+                result: UploadApiResponse | undefined
+              ) => {
+                if (error || !result) return reject(error);
+                resolve(result);
+              }
+            );
+            stream.end(fileBuffer);
+          }
+        );
+
+        finalImageUrl = uploaded.secure_url;
+      }
 
       const post = await PostService.updatePost(
         postId,
-        userId,
+        req.user.id,
         title,
         content,
-        postType as PostType,
-        imageUrl
+        (postType as PostType) || undefined,
+        finalImageUrl
       );
+
       res.json(post);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      return;
+    } catch (err: unknown) {
+      console.error("Erro no updatePost:", err);
+      const message = err instanceof Error ? err.message : "Erro inesperado";
+      res.status(400).json({ error: message });
+      return;
     }
   }
 
@@ -143,6 +215,39 @@ export class PostController {
     } catch (error: any) {
       console.error("🚨 Erro ao filtrar posts:", error.message);
       res.status(400).json({ error: error.message });
+    }
+  }
+
+  // Listar posts com paginação
+  static async getPaginated(req: Request, res: Response) {
+    try {
+      console.log("GET /post/postspaginated - query recebida:", req.query); // log
+
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 6;
+
+      console.log("Página:", page, "| Limite:", limit);
+
+      const result = await PostService.getPaginated(page, limit);
+      res.json({ posts: result.enrichedPosts, total: result.total });
+    } catch (error) {
+      console.error("❌ Erro ao buscar posts paginados:", error);
+      res.status(400).json({ error: "Erro ao buscar posts recentes" });
+    }
+  }
+
+  static async getTopViewed(req: Request, res: Response) {
+    try {
+      console.log("📥 GET /post/top - query recebida:", req.query);
+
+      const limit = Number(req.query.limit) || 3; // valor padrão
+      console.log("📊 Limit:", limit);
+
+      const posts = await PostService.getTopViewed(limit);
+      res.json({ posts });
+    } catch (error) {
+      console.error("❌ Erro ao buscar posts mais vistos:", error);
+      res.status(400).json({ error: "Erro ao buscar destaques" });
     }
   }
 }

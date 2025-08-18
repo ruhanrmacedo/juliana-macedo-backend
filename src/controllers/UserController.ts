@@ -5,6 +5,7 @@ import qs from "qs";
 import { AppDataSource } from "../config/ormconfig";
 import { User } from "../models/User";
 
+
 export class UserController {
   // Rota de Registro
   static async register(req: Request, res: Response) {

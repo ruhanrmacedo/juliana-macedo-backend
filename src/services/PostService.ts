@@ -116,6 +116,39 @@ export class PostService {
     return { message: "Post deletado permanentemente." };
   }
 
+  // Contar número de views de um post
+  static async incrementPostViews(postId: number) {
+    await postRepository.increment({ id: postId }, "views", 1);
+  }
+
+  //  Listar posts com paginação
+  static async getPaginated(page = 1, limit = 10) {
+    // 🔒 Sanitização e fallback defensivo
+    const currentPage = Number(page);
+    const pageSize = Number(limit);
+
+    if (isNaN(currentPage) || isNaN(pageSize) || currentPage <= 0 || pageSize <= 0) {
+      throw new Error("Parâmetros inválidos: 'page' e 'limit' devem ser inteiros positivos");
+    }
+
+    const [posts, total] = await postRepository.findAndCount({
+      where: { isActive: true },
+      skip: (currentPage - 1) * pageSize,
+      take: pageSize,
+      order: { createdAt: "DESC" },
+      relations: ["author", "editedBy"],
+    });
+
+    // 🔍 Garantir que mesmo se likes ou comments forem lazy-loaded ou nulos, temos fallback
+    const enrichedPosts = posts.map((post) => ({
+      ...post,
+      commentsCount: post.comments?.length ?? 0,
+      likes: post.likes?.length ?? 0,
+    }));
+
+    return { enrichedPosts, total };
+  }
+
   // Filtrar posts por título, categoria, autor ou data
   static async filterPosts(
     title?: string,
@@ -178,5 +211,15 @@ export class PostService {
     console.log("✅ Posts retornados:", result.length);
 
     return result;
+  }
+
+  // Listar posts mais visualizados
+  static async getTopViewed(limit: number) {
+    return await postRepository.find({
+      where: { isActive: true },
+      order: { views: "DESC" },
+      take: limit,
+      relations: ["author", "editedBy"],
+    });
   }
 }

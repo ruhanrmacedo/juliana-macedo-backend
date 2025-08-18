@@ -2,15 +2,21 @@ import { Router } from "express";
 import { PostController } from "../controllers/PostController";
 import { authMiddleware } from "../middleware/authMiddleware";
 import { checkRole } from "../middleware/authMiddleware";
+import { upload } from "../middleware/upload";
 
 const router = Router();
 
-router.post("/posts", authMiddleware, PostController.createPost);
-router.get("/posts", PostController.getAllPosts);
-router.get("/posts/:id", PostController.getPostById);
-router.put("/posts/:id", authMiddleware, PostController.updatePost);
-router.patch("/posts/:id/toggle-active", authMiddleware, PostController.toggleActive);
-router.delete("/posts/:id", authMiddleware, checkRole(["admin"]), PostController.deletePost);
-router.get("/postsfilter/filter", PostController.filterPosts);
+// 🔹 Rotas específicas sempre primeiro
+router.get("/postspaginated", PostController.getPaginated);
+router.get("/top", PostController.getTopViewed);
+router.get("/filter", PostController.filterPosts);
+
+// 🔹 CRUD de posts
+router.post("/", authMiddleware, upload.single("image"), PostController.createPost);
+router.get("/", PostController.getAllPosts);
+router.get("/:id", PostController.getPostById);
+router.put("/:id", authMiddleware, upload.single("image"), PostController.updatePost);
+router.patch("/:id/toggle", authMiddleware, PostController.toggleActive);
+router.delete("/:id", authMiddleware, PostController.deletePost);
 
 export default router;

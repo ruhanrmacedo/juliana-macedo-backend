@@ -47,6 +47,9 @@ export class Post {
   @UpdateDateColumn({ name: "updated_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
   updatedAt: Date;
 
+  @Column({ default: 0 })
+  views?: number;
+
   @OneToMany(() => Comment, (comment) => comment.post)
   comments: Comment[];
 

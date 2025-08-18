@@ -32,7 +32,10 @@ export class UserMetricsController {
 
       res.json(metrics);
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      const msg = String(error?.message || "");
+      const isValidation =
+        /obrigatóri|plausíve|inválid|fora do intervalo/i.test(msg);
+      return res.status(isValidation ? 400 : 500).json({ error: msg });
     }
   }
 
@@ -138,7 +141,7 @@ export class UserMetricsController {
       if (!userId) {
         res.status(404).json({ error: "Usuário não encontrado" });
         return;
-      } 
+      }
 
       const [last] = await UserMetricsService.getUserMetrics(userId);
       if (!last) {
@@ -161,7 +164,7 @@ export class UserMetricsController {
       if (!userId) {
         res.status(404).json({ error: "Usuário não encontrado" });
         return;
-      }  
+      }
       const [last] = await UserMetricsService.getUserMetrics(userId);
       if (!last) {
         res.status(404).json({ error: "Nenhuma métrica encontrada" });

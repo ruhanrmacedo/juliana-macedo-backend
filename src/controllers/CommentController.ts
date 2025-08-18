@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { CommentService } from "../services/CommentService";
+import { AppDataSource } from "../config/ormconfig";
+import { Comment } from "../models/Comment";
 
 export class CommentController {
     static async create(req: Request, res: Response) {
@@ -9,7 +11,26 @@ export class CommentController {
             if (!userId) {
                 res.status(401).json({ error: "Usuário não autenticado" });
                 return;
-            } 
+            }
+
+            // Verificar o último comentário do usuário
+            const commentRepo = AppDataSource.getRepository(Comment);
+            const lastComment = await commentRepo.findOne({
+                where: { user: { id: userId } },
+                order: { createdAt: "DESC" },
+            });
+
+            if (
+                lastComment &&
+                new Date().getTime() - new Date(lastComment.createdAt).getTime() <
+                10_000
+            ) {
+                res
+                    .status(429)
+                    .json({
+                        error: "Espere pelo menos 10 segundos entre os comentários.",
+                    });
+            }
 
             const comment = await CommentService.create(postId, userId, content);
             res.status(201).json(comment);
@@ -25,7 +46,9 @@ export class CommentController {
             const userId = req.user?.id;
 
             if (!commentId || !userId) {
-                res.status(400).json({ error: "Dados inválidos para atualizar comentário." });
+                res
+                    .status(400)
+                    .json({ error: "Dados inválidos para atualizar comentário." });
                 return;
             }
 
@@ -43,7 +66,9 @@ export class CommentController {
             const isAdmin = req.user?.role === "admin";
 
             if (!commentId || !userId) {
-                res.status(400).json({ error: "ID do comentário ou usuário inválido." });
+                res
+                    .status(400)
+                    .json({ error: "ID do comentário ou usuário inválido." });
                 return;
             }
 
@@ -59,6 +84,24 @@ export class CommentController {
             const { postId } = req.params;
             const comments = await CommentService.listByPost(+postId);
             res.json(comments);
+        } catch (error: any) {
+            res.status(400).json({ error: error.message });
+        }
+    }
+
+    // Método para listar comentários de um post com paginação
+    static async listByPostPaginated(req: Request, res: Response) {
+        try {
+            const postId = Number(req.params.postId);
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 10;
+
+            const result = await CommentService.listByPostPaginated(
+                postId,
+                page,
+                limit
+            );
+            res.json(result);
         } catch (error: any) {
             res.status(400).json({ error: error.message });
         }

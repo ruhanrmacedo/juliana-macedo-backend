@@ -47,4 +47,17 @@ export class CommentService {
       order: { createdAt: "DESC" },
     });
   }
+
+  // Listar comentários de um post com paginação
+  static async listByPostPaginated(postId: number, page = 1, limit = 10) {
+    const [comments, total] = await commentRepository.findAndCount({
+      where: { post: { id: postId } },
+      relations: ["user"],
+      order: { createdAt: "DESC" },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return { comments, total };
+  }
 }

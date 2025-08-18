@@ -9,6 +9,7 @@ import postLikeRoutes from "./routes/postLike.routes";
 import userPhoneRoutes from "./routes/userPhone.routes";
 import userEmailRoutes from "./routes/userEmail.routes";
 import userAddressRoutes from "./routes/userAddress.routes";
+import mediaRoutes from "./routes/media.routes";
 
 const app = express();
 app.use(cors());
@@ -22,6 +23,7 @@ app.use("/likes", postLikeRoutes);
 app.use("/phones", userPhoneRoutes);
 app.use("/emails", userEmailRoutes);
 app.use("/addresses", userAddressRoutes);
+app.use("/media", mediaRoutes);
 
 AppDataSource.initialize()
   .then(() => {

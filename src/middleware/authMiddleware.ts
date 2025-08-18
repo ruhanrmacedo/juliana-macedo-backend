@@ -8,12 +8,6 @@ interface DecodedToken {
   name: string;
 }
 
-declare module "express-serve-static-core" {
-  interface Request {
-    user?: DecodedToken;
-  }
-}
-
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
 
