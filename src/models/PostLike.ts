@@ -6,14 +6,14 @@ export class PostLike {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Post, (post) => post.likes)
+  @ManyToOne(() => Post, (post) => post.likes, { onDelete: "CASCADE" }) // opcional, alinha com FK
   @JoinColumn({ name: "post_id" })
   post: Post;
 
-  @Column()
+  @Column({ length: 64 })
   ip: string;
 
-  @Column({ name: "user_agent" })
+  @Column({ name: "user_agent", length: 255 })
   userAgent: string;
 
   @CreateDateColumn({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })

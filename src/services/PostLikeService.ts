@@ -4,21 +4,35 @@ import { Post } from "../models/Post";
 
 const postLikeRepo = AppDataSource.getRepository(PostLike);
 
+export class AlreadyLikedError extends Error { }
+export class NotFoundError extends Error { }
+
 export class PostLikeService {
   static async like(postId: number, ip: string, userAgent: string) {
-    const post = await AppDataSource.getRepository(Post).findOneBy({ id: postId });
-    if (!post) throw new Error("Post não encontrado");
-
-    const existing = await postLikeRepo.findOne({
-      where: { post: { id: postId }, ip, userAgent },
+    // cria relacionando só pelo id (sem SELECT extra)
+    const like = postLikeRepo.create({
+      post: { id: postId } as Post,
+      ip,
+      userAgent,
     });
-    if (existing) throw new Error("Você já curtiu esse post");
 
-    const like = postLikeRepo.create({ post, ip, userAgent });
-    return await postLikeRepo.save(like);
+    try {
+      return await postLikeRepo.save(like);
+    } catch (e: any) {
+      // 23505 = unique_violation (já curtiu)
+      if (e?.code === "23505") throw new AlreadyLikedError("Você já curtiu esse post");
+      // 23503 = foreign_key_violation (post inexistente)
+      if (e?.code === "23503") throw new NotFoundError("Post não encontrado");
+      throw e;
+    }
   }
 
   static async count(postId: number) {
+    // Se preferir 404 quando o post não existir:
+    const postExists = await AppDataSource.getRepository(Post).exist({ where: { id: postId } });
+    if (!postExists) throw new NotFoundError("Post não encontrado");
+
     return await postLikeRepo.count({ where: { post: { id: postId } } });
   }
 }
+

@@ -123,30 +123,37 @@ export class PostService {
 
   //  Listar posts com paginação
   static async getPaginated(page = 1, limit = 10) {
-    // 🔒 Sanitização e fallback defensivo
-    const currentPage = Number(page);
-    const pageSize = Number(limit);
+    const currentPage = Math.max(1, Number(page) || 1);
+    const pageSize = Math.max(1, Number(limit) || 10);
 
-    if (isNaN(currentPage) || isNaN(pageSize) || currentPage <= 0 || pageSize <= 0) {
-      throw new Error("Parâmetros inválidos: 'page' e 'limit' devem ser inteiros positivos");
-    }
+    const qb = AppDataSource.getRepository(Post)
+      .createQueryBuilder("post")
+      .leftJoinAndSelect("post.author", "author")
+      .where("post.isActive = :isActive", { isActive: true })
+      .loadRelationCountAndMap("post.commentsCount", "post.comments")
+      .loadRelationCountAndMap("post.likesCount", "post.likes")
+      // 👇 use o nome da propriedade da entidade
+      .orderBy("post.createdAt", "DESC")
+      // (opcional) segundo critério estável para paginação
+      .addOrderBy("post.id", "DESC")
+      .skip((currentPage - 1) * pageSize)
+      .take(pageSize);
 
-    const [posts, total] = await postRepository.findAndCount({
-      where: { isActive: true },
-      skip: (currentPage - 1) * pageSize,
-      take: pageSize,
-      order: { createdAt: "DESC" },
-      relations: ["author", "editedBy"],
-    });
+    const [rows, total] = await qb.getManyAndCount();
 
-    // 🔍 Garantir que mesmo se likes ou comments forem lazy-loaded ou nulos, temos fallback
-    const enrichedPosts = posts.map((post) => ({
-      ...post,
-      commentsCount: post.comments?.length ?? 0,
-      likes: post.likes?.length ?? 0,
+    const posts = rows.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      excerpt: p.content?.slice(0, 200) ?? "",
+      imageUrl: p.imageUrl,
+      createdAt: p.createdAt,
+      author: p.author ? { id: p.author.id, name: p.author.name } : null,
+      likes: p.likesCount ?? 0,
+      commentsCount: p.commentsCount ?? 0,
+      views: typeof p.views === "number" ? p.views : 0,
     }));
 
-    return { enrichedPosts, total };
+    return { posts, total };
   }
 
   // Filtrar posts por título, categoria, autor ou data
@@ -215,11 +222,26 @@ export class PostService {
 
   // Listar posts mais visualizados
   static async getTopViewed(limit: number) {
-    return await postRepository.find({
-      where: { isActive: true },
-      order: { views: "DESC" },
-      take: limit,
-      relations: ["author", "editedBy"],
-    });
+    const qb = AppDataSource.getRepository(Post)
+      .createQueryBuilder("post")
+      .leftJoinAndSelect("post.author", "author")
+      .where("post.isActive = :isActive", { isActive: true })
+      .loadRelationCountAndMap("post.commentsCount", "post.comments")
+      .loadRelationCountAndMap("post.likesCount", "post.likes")
+      .orderBy("post.views", "DESC")
+      .take(limit);
+
+    const rows = await qb.getMany();
+    return rows.map((p: any) => ({
+      id: p.id,
+      title: p.title,
+      excerpt: p.content?.slice(0, 200) ?? "",
+      imageUrl: p.imageUrl,
+      createdAt: p.createdAt,
+      author: p.author ? { id: p.author.id, name: p.author.name } : null,
+      likes: p.likesCount ?? 0,
+      commentsCount: p.commentsCount ?? 0,
+      views: typeof p.views === "number" ? p.views : 0,
+    }));
   }
 }

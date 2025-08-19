@@ -25,6 +25,8 @@ app.use("/emails", userEmailRoutes);
 app.use("/addresses", userAddressRoutes);
 app.use("/media", mediaRoutes);
 
+app.set("trust proxy", true); // Para obter o IP real do usuário
+
 AppDataSource.initialize()
   .then(() => {
     console.log("Banco de dados conectado!");

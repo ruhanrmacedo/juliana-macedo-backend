@@ -221,33 +221,28 @@ export class PostController {
   // Listar posts com paginação
   static async getPaginated(req: Request, res: Response) {
     try {
-      console.log("GET /post/postspaginated - query recebida:", req.query); // log
-
       const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 6;
-
-      console.log("Página:", page, "| Limite:", limit);
-
-      const result = await PostService.getPaginated(page, limit);
-      res.json({ posts: result.enrichedPosts, total: result.total });
+      const { posts, total } = await PostService.getPaginated(page, limit);
+      res.json({ posts, total });
+      return;
     } catch (error) {
-      console.error("❌ Erro ao buscar posts paginados:", error);
+      console.error("Erro ao buscar posts paginados:", error);
       res.status(400).json({ error: "Erro ao buscar posts recentes" });
+      return;
     }
   }
 
   static async getTopViewed(req: Request, res: Response) {
     try {
-      console.log("📥 GET /post/top - query recebida:", req.query);
-
-      const limit = Number(req.query.limit) || 3; // valor padrão
-      console.log("📊 Limit:", limit);
-
+      const limit = Number(req.query.limit) || 3;
       const posts = await PostService.getTopViewed(limit);
       res.json({ posts });
+      return;
     } catch (error) {
       console.error("❌ Erro ao buscar posts mais vistos:", error);
       res.status(400).json({ error: "Erro ao buscar destaques" });
+      return;
     }
   }
 }

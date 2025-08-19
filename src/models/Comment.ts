@@ -2,7 +2,6 @@ import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGenerat
 import { User } from "./User";
 import { Post } from "./Post";
 
-
 @Entity("comments")
 export class Comment {
   @PrimaryGeneratedColumn()
@@ -11,11 +10,11 @@ export class Comment {
   @Column("text")
   content: string;
 
-  @ManyToOne(() => User, (user) => user.comments)
+  @ManyToOne(() => User, (user) => user.comments, { onDelete: "CASCADE" }) // opcional
   @JoinColumn({ name: "user_id" })
   user: User;
 
-  @ManyToOne(() => Post, (post) => post.comments)
+  @ManyToOne(() => Post, (post) => post.comments, { onDelete: "CASCADE" }) // opcional
   @JoinColumn({ name: "post_id" })
   post: Post;
 
