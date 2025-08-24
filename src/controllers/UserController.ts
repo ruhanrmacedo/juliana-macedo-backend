@@ -233,4 +233,63 @@ export class UserController {
       res.status(400).json({ error: error.message });
     }
   }
+
+  static async listUsers(req: Request, res: Response) {
+    try {
+      const { q = "", role, page = 1, pageSize = 50 } = req.query as any;
+      const repo = AppDataSource.getRepository(User);
+
+      const qb = repo
+        .createQueryBuilder("u")
+        .select([
+          "u.id",
+          "u.name",
+          "u.email",
+          "u.role",
+          "u.cpf",
+          "u.dataNascimento",
+          "u.updatedAt",
+        ])
+        .orderBy("u.updatedAt", "DESC");
+
+      if (role) qb.andWhere("u.role = :role", { role });
+
+      if (q) {
+        const term = `%${q.toString().trim().toLowerCase()}%`;
+        qb.andWhere(
+          "(LOWER(u.name) LIKE :term OR u.cpf LIKE :term OR LOWER(u.email) LIKE :term)",
+          { term }
+        );
+      }
+
+      const skip = (Number(page) - 1) * Number(pageSize);
+      qb.skip(skip).take(Number(pageSize));
+
+      const [items, total] = await qb.getManyAndCount();
+      res.json({ items, total, page: Number(page), pageSize: Number(pageSize) });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
+
+  static async getUserById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const repo = AppDataSource.getRepository(User);
+      const user = await repo.findOne({
+        where: { id: Number(id) },
+        relations: ["phones", "emails", "addresses"], // útil para o perfil
+      });
+      if (!user) {
+        res.status(404).json({ error: "Usuário não encontrado" });
+        return;
+      }
+
+      // Remover password do payload (por segurança)
+      const { password, ...safe } = user as any;
+      res.json(safe);
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  }
 }

@@ -221,9 +221,11 @@ export class PostController {
   // Listar posts com paginação
   static async getPaginated(req: Request, res: Response) {
     try {
-      const page = Number(req.query.page) || 1;
+      const page  = Number(req.query.page)  || 1;
       const limit = Number(req.query.limit) || 6;
-      const { posts, total } = await PostService.getPaginated(page, limit);
+      const type  = (req.query.type as string | undefined) || undefined; // 👈
+  
+      const { posts, total } = await PostService.getPaginated(page, limit, type); // 👈
       res.json({ posts, total });
       return;
     } catch (error) {

@@ -6,6 +6,15 @@ import { PostType } from "../models/enums/PostType";
 
 const postRepository = AppDataSource.getRepository(Post);
 
+const slugToEnum: Record<string, PostType> = {
+  receitas: PostType.RECEITA,
+  saude: PostType.SAUDE,
+  artigos: PostType.ARTIGO,
+  alimentacao: PostType.ALIMENTACAO,
+  dicas: PostType.DICAS,
+  novidades: PostType.NOVIDADES,
+};
+
 export class PostService {
   // Criar um novo post teste
   static async createPost(
@@ -122,7 +131,7 @@ export class PostService {
   }
 
   //  Listar posts com paginação
-  static async getPaginated(page = 1, limit = 10) {
+  static async getPaginated(page = 1, limit = 10, typeSlug?: string) {
     const currentPage = Math.max(1, Number(page) || 1);
     const pageSize = Math.max(1, Number(limit) || 10);
 
@@ -132,12 +141,15 @@ export class PostService {
       .where("post.isActive = :isActive", { isActive: true })
       .loadRelationCountAndMap("post.commentsCount", "post.comments")
       .loadRelationCountAndMap("post.likesCount", "post.likes")
-      // 👇 use o nome da propriedade da entidade
       .orderBy("post.createdAt", "DESC")
-      // (opcional) segundo critério estável para paginação
       .addOrderBy("post.id", "DESC")
       .skip((currentPage - 1) * pageSize)
       .take(pageSize);
+
+    if (typeSlug) {
+      const enumValue = slugToEnum[typeSlug];
+      if (enumValue) qb.andWhere(`post."postType" = :t`, { t: enumValue });
+    }
 
     const [rows, total] = await qb.getManyAndCount();
 

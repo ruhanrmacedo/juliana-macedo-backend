@@ -10,6 +10,10 @@ import userPhoneRoutes from "./routes/userPhone.routes";
 import userEmailRoutes from "./routes/userEmail.routes";
 import userAddressRoutes from "./routes/userAddress.routes";
 import mediaRoutes from "./routes/media.routes";
+import "dotenv/config";
+import anthropometryRoutes from "./routes/anthropometry.routes";
+import userRoutes from "./routes/user.routes";
+import adminUserRoutes from "./routes/admin.user.routes";
 
 const app = express();
 app.use(cors());
@@ -24,6 +28,9 @@ app.use("/phones", userPhoneRoutes);
 app.use("/emails", userEmailRoutes);
 app.use("/addresses", userAddressRoutes);
 app.use("/media", mediaRoutes);
+app.use("/anthropometry", anthropometryRoutes);
+app.use("/users", userRoutes);
+app.use("/admin/users", adminUserRoutes);
 
 app.set("trust proxy", true); // Para obter o IP real do usuário
 
