@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { UserMetricsController } from "../controllers/UserMetricsController";
-import { authMiddleware } from "../middleware/authMiddleware";
+import { authMiddleware, checkRole } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -8,6 +8,7 @@ const router = Router();
 router.post("/", authMiddleware, UserMetricsController.createOrUpdateUserMetrics);
 router.get("/", authMiddleware, UserMetricsController.getUserMetrics);
 router.get("/imc", authMiddleware, UserMetricsController.getIMC);
+router.get("/users/:userId/imc", authMiddleware, checkRole(["admin"]), UserMetricsController.getIMCAdmin);
 router.get("/tdee", authMiddleware, UserMetricsController.getTDEE);
 router.get("/macronutrients", authMiddleware, UserMetricsController.getMacronutrients);
 router.get("/tmb", authMiddleware, UserMetricsController.getTMB);

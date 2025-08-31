@@ -51,11 +51,18 @@ export async function calcSlaughter(e: AnthropometryEvaluation): Promise<Anthrop
     if (e.triceps_mm == null || e.subescapular_mm == null) {
         throw new BadRequest("TR e SB são obrigatórios para Slaughter");
     }
-    // TODO fórmula Slaughter (sexo + somatório)
-    const percentual = 18; // placeholder
+    const TR = Number(e.triceps_mm);
+    const SB = Number(e.subescapular_mm);
+    const S = TR + SB;
+
+    // Slaughter et al. 1988 — %G por sexo
+    const pg = e.sexo === "M"
+        ? 1.21 * S - 0.008 * (S * S) - 1.7
+        : 1.33 * S - 0.013 * (S * S) - 2.5;
+
     const r = new AnthropometryResult();
     r.method = AnthropometryMethod.SLAUGHTER;
-    r.percentualGordura = percentual;
-    r.parametrosJson = { note: "TODO: Slaughter por sexo e faixa de somatório" };
+    r.percentualGordura = +pg.toFixed(2);
+    r.parametrosJson = { S, formula: `Slaughter ${e.sexo}` };
     return r;
 }

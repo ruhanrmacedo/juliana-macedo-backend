@@ -14,6 +14,7 @@ import "dotenv/config";
 import anthropometryRoutes from "./routes/anthropometry.routes";
 import userRoutes from "./routes/user.routes";
 import adminUserRoutes from "./routes/admin.user.routes";
+import gestationRoutes from "./routes/gestation.routes";
 
 const app = express();
 app.use(cors());
@@ -31,6 +32,7 @@ app.use("/media", mediaRoutes);
 app.use("/anthropometry", anthropometryRoutes);
 app.use("/users", userRoutes);
 app.use("/admin/users", adminUserRoutes);
+app.use("/gestation", gestationRoutes);
 
 app.set("trust proxy", true); // Para obter o IP real do usuário
 

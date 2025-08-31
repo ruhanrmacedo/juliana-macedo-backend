@@ -7,7 +7,6 @@ import { UserEmailService } from "../services/UserEmailService";
 import { UserAddressService } from "../services/UserAddressService";
 
 export class AdminUserController {
-    /** PUT /admin/users/:id  -> name, email, cpf, role, dataNascimento */
     static async updateUser(req: Request, res: Response) {
         try {
             const id = Number(req.params.id);
@@ -58,7 +57,6 @@ export class AdminUserController {
         }
     }
 
-    /** PUT /admin/users/:id/password  -> define nova senha informada pelo admin */
     static async setPassword(req: Request, res: Response) {
         try {
             const id = Number(req.params.id);
@@ -78,7 +76,6 @@ export class AdminUserController {
         }
     }
 
-    // --------- Os de contato/endereço (opcional, já prontos) ----------
     static async listPhones(req: Request, res: Response) {
         const userId = Number(req.params.id);
         const phones = await UserPhoneService.getPhones(userId);

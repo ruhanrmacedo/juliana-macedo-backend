@@ -108,18 +108,19 @@ export class UserMetricsService {
         }
 
         // Há histórico: podemos aplicar fallback campo a campo
-        const pesoFinal = peso !== undefined ? assertPesoKg(peso) : last.peso;
-        const alturaFinal = altura !== undefined ? normalizeAlturaToMeters(altura) : last.altura;
-        const idadeFinal = idade !== undefined ? assertIdade(idade) : last.idade;
-        const sexoFinal = sexo !== undefined ? assertSexo(sexo) : (last.sexo as "M" | "F");
-        const nivelFinal = nivelAtividade !== undefined
+        const has = (v: any) => v !== undefined && v !== null && v !== "";
+
+        const pesoFinal = has(peso) ? assertPesoKg(peso) : last.peso;
+        const alturaFinal = has(altura) ? normalizeAlturaToMeters(altura) : last.altura;
+        const idadeFinal = has(idade) ? assertIdade(idade) : last.idade;
+        const sexoFinal = has(sexo) ? assertSexo(sexo) : (last.sexo as "M" | "F");
+        const nivelFinal = has(nivelAtividade)
             ? assertNivelAtividade(nivelAtividade, last.nivelAtividade)
             : last.nivelAtividade;
 
-        const gorduraFinal =
-            gorduraCorporal !== undefined && gorduraCorporal !== null && gorduraCorporal !== ""
-                ? assertGordura(gorduraCorporal)
-                : last.gorduraCorporal;
+        const gorduraFinal = has(gorduraCorporal)
+            ? assertGordura(gorduraCorporal)
+            : last.gorduraCorporal;
 
         const newMetrics = userMetricsRepository.create({
             user,

@@ -14,7 +14,10 @@ export class UserMetricsController {
         return;
       }
 
-      if (!Object.values(NivelAtividade).includes(nivelAtividade)) {
+      if (
+        nivelAtividade !== undefined &&
+        !Object.values(NivelAtividade).includes(nivelAtividade)
+      ) {
         res.status(400).json({ error: "Nível de atividade inválido." });
         return;
       }
@@ -42,7 +45,10 @@ export class UserMetricsController {
   // Obter histórico de métricas do usuário
   static async getUserMetrics(req: Request, res: Response) {
     try {
-      const userId = req.user?.id;
+      const isAdmin = req.user?.role === "admin";
+      const qUserId = req.query.userId ? Number(req.query.userId) : undefined;
+
+      const userId = isAdmin && qUserId ? qUserId : req.user?.id;
 
       if (!userId) {
         res.status(400).json({ error: "Usuário não encontrado!" })
@@ -199,6 +205,42 @@ export class UserMetricsController {
       res.json({ hasMetrics });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  }
+
+  static async getLatestByUserAdmin(req: Request, res: Response) {
+    try {
+      const { userId } = req.params;
+      if (req.user?.role !== "admin") {
+        res.status(403).json({ error: "Acesso negado" });
+        return;
+      }
+      const metrics = await UserMetricsService.getUserMetrics(Number(userId));
+      const latest = metrics[0] ?? null;
+      res.json(latest);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  }
+
+  static async getIMCAdmin(req: Request, res: Response) {
+    try {
+      if (req.user?.role !== "admin") {
+        res.status(403).json({ error: "Acesso negado" });
+        return;
+      }
+      const userId = Number(req.params.userId);
+      const [last] = await UserMetricsService.getUserMetrics(userId);
+      if (!last) {
+        res.status(404).json({ error: "Nenhuma métrica encontrada" });
+        return;
+      }
+      UserMetricsService.validateIMCData(last);
+      const imc = UserMetricsService.calculateIMC(last.peso, last.altura);
+      const classificacao = UserMetricsService.classifyIMC(imc);
+      res.json({ imc: imc.toFixed(2), classificacao });
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
     }
   }
 }

@@ -6,6 +6,8 @@ import { AnthropometryCalculator } from "../models/anthropometry/calculators";
 import { betweenDates, getAgeYearsAt } from "../models/anthropometry/calculators/utils/date";
 import { BadRequest, Forbidden, normalizeNumber, requireFields } from "../models/anthropometry/calculators/utils/errors";
 import { AnthropometryMethod } from "../models/enums/AnthropometryMethod";
+import { UserMetricsService } from "./UserMetricsService";
+import { NivelAtividade } from "../models/enums/NivelAtividade";
 
 type CreateEvalInput = Partial<AnthropometryEvaluation> & {
     userId: number;
@@ -15,7 +17,33 @@ type CreateEvalInput = Partial<AnthropometryEvaluation> & {
 const evalRepo = () => AppDataSource.getRepository(AnthropometryEvaluation);
 const resRepo = () => AppDataSource.getRepository(AnthropometryResult);
 
+async function syncMetricsFromEvaluation(
+    evaluation: AnthropometryEvaluation,
+    opts?: { gorduraCorporal?: number }
+) {
+    try {
+        const userId = evaluation.userId;
+        // pega último nível de atividade (fallback)
+        const last = await UserMetricsService.getUserMetrics(userId);
+        const lastNivel = last[0]?.nivelAtividade ?? NivelAtividade.SEDENTARIO;
+
+        await UserMetricsService.createUserMetrics(
+            userId,
+            evaluation.peso,            // pode vir undefined -> serviço usa fallback
+            evaluation.altura,
+            evaluation.idade,
+            evaluation.sexo,
+            lastNivel,
+            opts?.gorduraCorporal      // define/atualiza gordura corporal quando disponível
+        );
+    } catch (e) {
+        // não quebrar o fluxo da antropometria se métrica falhar
+        console.warn("[anthropometry→metrics] sync falhou:", (e as Error).message);
+    }
+}
+
 export const AnthropometryService = {
+
     async createEvaluation(input: CreateEvalInput) {
         requireFields(input, ["userId", "measuredAt"]);
 
@@ -38,6 +66,10 @@ export const AnthropometryService = {
         });
 
         const saved = await evalRepo().save(entity);
+
+        if (saved.peso != null || saved.altura != null || saved.idade != null || saved.sexo) {
+            await syncMetricsFromEvaluation(saved);
+        }
         return saved;
     },
 
@@ -59,7 +91,16 @@ export const AnthropometryService = {
         });
 
         evalRepo().merge(evaluation, payload);
-        return await evalRepo().save(evaluation);
+
+        const updated = await evalRepo().save(evaluation);
+
+        if (
+            payload.peso != null || payload.altura != null ||
+            payload.idade != null || payload.sexo != null
+        ) {
+            await syncMetricsFromEvaluation(updated);
+        }
+        return updated;
     },
 
     async computeWithAutopick(evaluationId: number, requester: { id: number; role: string }) {
@@ -91,12 +132,20 @@ export const AnthropometryService = {
                 const r = await AnthropometryCalculator.runAndPersist(AnthropometryMethod.SLAUGHTER, evaluation);
                 results.push(r);
             }
+
+            const pg = results.find(r => r.percentualGordura != null)?.percentualGordura;
+            if (pg != null) await syncMetricsFromEvaluation(evaluation, { gorduraCorporal: Number(pg) });
+
             return results;
         }
 
         // Adulto/idoso
         if (pick.method) {
             const r = await AnthropometryCalculator.runAndPersist(pick.method, evaluation);
+
+            if (r?.percentualGordura != null) {
+                await syncMetricsFromEvaluation(evaluation, { gorduraCorporal: Number(r.percentualGordura) });
+            }
             return [r];
         }
 
@@ -114,7 +163,12 @@ export const AnthropometryService = {
             const age = getAgeYearsAt(evaluation.user?.dataNascimento, evaluation.measuredAt);
             evaluation.idade = age ?? 0;
         }
+        
         const r = await AnthropometryCalculator.runAndPersist(method, evaluation);
+        if (r?.percentualGordura != null) {
+            await syncMetricsFromEvaluation(evaluation, { gorduraCorporal: Number(r.percentualGordura) });
+        }
+
         return [r];
     },
 
