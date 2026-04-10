@@ -34,10 +34,16 @@ export const GestationController = {
     async listVisits(req: Request, res: Response) {
         try {
             const trackingId = Number(req.params.trackingId);
-            const items = await GestationService.listVisits(trackingId, req.user!);
-            res.json(items);
+            if (!Number.isFinite(trackingId)) {
+                return res.status(400).json({ error: "ID do acompanhamento inválido" });
+            }
+            const includeAnthro = String(req.query.includeAnthro ?? "") === "1";
+
+            const items = await GestationService.listVisits(trackingId, req.user!, { includeAnthro });
+            return res.json(items);
         } catch (err: any) {
-            res.status(err.status || 400).json({ error: err.message || "Erro ao listar visitas" });
+            console.error("[gestation:listVisits] trackingId=", req.params.trackingId, "err=", err);
+            return res.status(err.status || 400).json({ error: err.message || "Erro ao listar visitas" });
         }
-    },
+    }
 };

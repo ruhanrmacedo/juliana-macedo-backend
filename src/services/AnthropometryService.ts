@@ -4,7 +4,8 @@ import { AnthropometryResult } from "../models/anthropometry/AnthropometryResult
 import { calcAutopick } from "../models/anthropometry/autopick";
 import { AnthropometryCalculator } from "../models/anthropometry/calculators";
 import { betweenDates, getAgeYearsAt } from "../models/anthropometry/calculators/utils/date";
-import { BadRequest, Forbidden, normalizeNumber, requireFields } from "../models/anthropometry/calculators/utils/errors";
+import { BadRequest, Forbidden, requireFields } from "../models/anthropometry/calculators/utils/errors";
+import { normalizeNumber } from "../models/anthropometry/calculators/utils/number";
 import { AnthropometryMethod } from "../models/enums/AnthropometryMethod";
 import { UserMetricsService } from "./UserMetricsService";
 import { NivelAtividade } from "../models/enums/NivelAtividade";
@@ -29,15 +30,14 @@ async function syncMetricsFromEvaluation(
 
         await UserMetricsService.createUserMetrics(
             userId,
-            evaluation.peso,            // pode vir undefined -> serviço usa fallback
+            evaluation.peso,
             evaluation.altura,
             evaluation.idade,
             evaluation.sexo,
             lastNivel,
-            opts?.gorduraCorporal      // define/atualiza gordura corporal quando disponível
+            opts?.gorduraCorporal
         );
     } catch (e) {
-        // não quebrar o fluxo da antropometria se métrica falhar
         console.warn("[anthropometry→metrics] sync falhou:", (e as Error).message);
     }
 }
@@ -163,7 +163,7 @@ export const AnthropometryService = {
             const age = getAgeYearsAt(evaluation.user?.dataNascimento, evaluation.measuredAt);
             evaluation.idade = age ?? 0;
         }
-        
+
         const r = await AnthropometryCalculator.runAndPersist(method, evaluation);
         if (r?.percentualGordura != null) {
             await syncMetricsFromEvaluation(evaluation, { gorduraCorporal: Number(r.percentualGordura) });

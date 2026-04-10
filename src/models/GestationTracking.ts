@@ -17,6 +17,7 @@ export class GestationTracking {
     @Column("decimal", { precision: 5, scale: 2, name: "altura_cm" })
     alturaCm: number;
 
+    // DUM - Data da Última Menstruação
     @Column({ type: "date", name: "dum" }) dum: Date;
 
     @Column({ type: "int", name: "idade_gestacional_inicio", nullable: true })
@@ -26,11 +27,21 @@ export class GestationTracking {
     tipoGestacao: GestationType;
 
     // snapshots/metas
-    @Column("decimal", { precision: 4, scale: 1, name: "bmi_pre" }) bmiPre: number;
-    @Column({ name: "bmi_class", length: 20 }) bmiClass: "UNDER" | "NORMAL" | "OVER" | "OBESE";
-    @Column("decimal", { precision: 4, scale: 1, name: "meta_ganho_min_kg" }) metaGanhoMinKg: number;
-    @Column("decimal", { precision: 4, scale: 1, name: "meta_ganho_max_kg" }) metaGanhoMaxKg: number;
+    @Column("decimal", { precision: 4, scale: 1, name: "bmi_pre" }) 
+    bmiPre: number;
 
-    @CreateDateColumn({ name: "created_at" }) createdAt: Date;
-    @UpdateDateColumn({ name: "updated_at" }) updatedAt: Date;
+    @Column({ name: "bmi_class", length: 20 }) 
+    bmiClass: "UNDER" | "NORMAL" | "OVER" | "OBESE";
+
+    @Column("decimal", { precision: 4, scale: 1, name: "meta_ganho_min_kg" }) 
+    metaGanhoMinKg: number;
+
+    @Column("decimal", { precision: 4, scale: 1, name: "meta_ganho_max_kg" }) 
+    metaGanhoMaxKg: number;
+
+    @CreateDateColumn({ name: "created_at" }) 
+    createdAt: Date;
+
+    @UpdateDateColumn({ name: "updated_at" }) 
+    updatedAt: Date;
 }

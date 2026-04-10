@@ -12,6 +12,7 @@ router.get("/me", authMiddleware, UserController.me);
 router.put("/me", authMiddleware, UserController.updateProfile);
 router.post("/recover-email", UserController.recoverEmail);
 router.post("/forgot-password", UserController.forgotPassword);
+router.post("/change-password", authMiddleware, UserController.changePassword);
 
 
 

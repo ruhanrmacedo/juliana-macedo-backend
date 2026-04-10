@@ -60,10 +60,19 @@ export class PostService {
     return post;
   }
 
+  // Buscar todos os posts (admin)
+  static async getAdminPosts() {
+    return await postRepository.find({
+      order: { createdAt: "DESC" },
+      relations: ["author", "editedBy"],
+    });
+  }
+
   // Atualizar um post
   static async updatePost(
     postId: number,
     userId: number,
+    userRole: string,
     title?: string,
     content?: string,
     postType?: PostType,
@@ -76,8 +85,8 @@ export class PostService {
 
     if (!post) throw new Error("Post não encontrado");
 
-    if (!post.author || post.author.id !== userId)
-      throw new Error("Apenas o autor pode editar este post");
+    if (!post.author || post.author.id !== userId && userRole !== "admin")
+      throw new Error("Apenas o autor ou um admin pode editar este post");
 
     if (title) post.title = title;
     if (content) post.content = content;
@@ -97,7 +106,7 @@ export class PostService {
   }
 
   // Alternar ativo/inativo
-  static async toggleActive(postId: number, userId: number) {
+  static async toggleActive(postId: number, userId: number, userRole: string) {
     const post = await postRepository.findOne({
       where: { id: postId },
       relations: ["author"],
@@ -105,8 +114,8 @@ export class PostService {
 
     if (!post) throw new Error("Post não encontrado");
 
-    if (!post.author || post.author.id !== userId)
-      throw new Error("Apenas o autor pode desativar este post");
+    if (!post.author || post.author.id !== userId && userRole !== "admin")
+      throw new Error("Apenas o autor ou um admin pode desativar este post");
 
     post.isActive = !post.isActive;
     await postRepository.save(post);

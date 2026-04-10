@@ -15,6 +15,8 @@ import anthropometryRoutes from "./routes/anthropometry.routes";
 import userRoutes from "./routes/user.routes";
 import adminUserRoutes from "./routes/admin.user.routes";
 import gestationRoutes from "./routes/gestation.routes";
+import mealPlanRoutes from "./routes/mealPlanRoutes";
+import foodRoutes from "./routes/foodRoutes";
 
 const app = express();
 app.use(cors());
@@ -33,6 +35,20 @@ app.use("/anthropometry", anthropometryRoutes);
 app.use("/users", userRoutes);
 app.use("/admin/users", adminUserRoutes);
 app.use("/gestation", gestationRoutes);
+app.use("/meal-plans", mealPlanRoutes);
+app.use("/foods", foodRoutes);
+
+
+app.use(
+  (
+    err: any,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    res.status(err.status ?? 500).json({ error: err.message });
+  }
+);
 
 app.set("trust proxy", true); // Para obter o IP real do usuário
 

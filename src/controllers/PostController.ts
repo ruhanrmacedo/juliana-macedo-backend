@@ -65,6 +65,25 @@ export class PostController {
     }
   }
 
+  static async getAdminPosts(req: Request, res: Response) {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: "Usuário não autenticado" });
+        return;
+      }
+
+      if (req.user.role !== "admin") {
+        res.status(403).json({ error: "Apenas admins podem acessar esta área" });
+        return;
+      }
+
+      const posts = await PostService.getAdminPosts();
+      res.json(posts);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
   static async getPostById(req: Request, res: Response) {
     try {
       const postId = Number(req.params.id);
@@ -126,6 +145,7 @@ export class PostController {
       const post = await PostService.updatePost(
         postId,
         req.user.id,
+        req.user.role,
         title,
         content,
         (postType as PostType) || undefined,
@@ -152,7 +172,7 @@ export class PostController {
       const postId = Number(req.params.id);
       const userId = req.user.id;
 
-      const post = await PostService.toggleActive(postId, userId);
+      const post = await PostService.toggleActive(postId, userId, req.user.role);
       res.json(post);
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -221,10 +241,10 @@ export class PostController {
   // Listar posts com paginação
   static async getPaginated(req: Request, res: Response) {
     try {
-      const page  = Number(req.query.page)  || 1;
+      const page = Number(req.query.page) || 1;
       const limit = Number(req.query.limit) || 6;
-      const type  = (req.query.type as string | undefined) || undefined; // 👈
-  
+      const type = (req.query.type as string | undefined) || undefined; // 👈
+
       const { posts, total } = await PostService.getPaginated(page, limit, type); // 👈
       res.json({ posts, total });
       return;

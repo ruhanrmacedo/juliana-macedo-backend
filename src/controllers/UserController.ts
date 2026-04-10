@@ -4,6 +4,7 @@ import axios from "axios";
 import qs from "qs";
 import { AppDataSource } from "../config/ormconfig";
 import { User } from "../models/User";
+import { verifyRecaptcha } from "../utils/recaptcha";
 
 
 export class UserController {
@@ -27,32 +28,16 @@ export class UserController {
     try {
       const { email, password, captchaToken } = req.body;
 
-      if (!captchaToken) {
-        res.status(400).json({ error: "reCAPTCHA obrigatório" });
-        return;
-      }
-
-      const secretKey = process.env.RECAPTCHA_SECRET_KEY!;
-      const captchaRes = await axios.post(
-        "https://www.google.com/recaptcha/api/siteverify",
-        qs.stringify({
-          secret: process.env.RECAPTCHA_SECRET_KEY!,
-          response: captchaToken,
-        }),
-        { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-      );
-
-      if (!captchaRes.data.success) {
+      const ok = await verifyRecaptcha(captchaToken, req);
+      if (!ok) {
         res.status(400).json({ error: "Falha ao verificar reCAPTCHA" });
         return;
       }
 
       const result = await UserService.login(email, password);
       res.json(result);
-      return;
     } catch (error: any) {
       res.status(400).json({ error: error.message });
-      return;
     }
   }
 
@@ -75,34 +60,29 @@ export class UserController {
 
       console.log("Token recebido no cadastro:", captchaToken);
 
-      // Verifica se o token foi enviado
-      if (!captchaToken) {
-        res.status(400).json({ error: "reCAPTCHA obrigatório" });
-        return;
-      }
-
-      // Valida o token com o Google
-      const secretKey = process.env.RECAPTCHA_SECRET_KEY!;
-      const captchaRes = await axios.post(
-        "https://www.google.com/recaptcha/api/siteverify",
-        qs.stringify({
-          secret: secretKey,
-          response: captchaToken,
-        }),
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" }
-        }
-      );
-
-      if (!captchaRes.data.success) {
+      // Verifica reCAPTCHA (respeita .env e header x-bypass-recaptcha)
+      const ok = await verifyRecaptcha(captchaToken, req);
+      if (!ok) {
         res.status(400).json({ error: "Falha ao verificar reCAPTCHA" });
         return;
       }
 
-      const cleanCpf = cpf.replace(/[^\d]/g, "");
-      const parsedDataNascimento = new Date(dataNascimento);
+      if (!cpf) {
+        res.status(400).json({ error: "CPF é obrigatório." });
+        return;
+      }
+      const cleanCpf = String(cpf).replace(/[^\d]/g, "");
 
-      // Cria o usuário normalmente
+      if (!dataNascimento) {
+        res.status(400).json({ error: "Data de nascimento é obrigatória." });
+        return;
+      }
+      const parsedDataNascimento = new Date(dataNascimento);
+      if (isNaN(parsedDataNascimento.getTime())) {
+        res.status(400).json({ error: "Data de nascimento inválida." });
+        return;
+      }
+
       const user = await UserService.registerFullUser({
         name,
         email,
@@ -113,7 +93,7 @@ export class UserController {
         address,
         extraPhones,
         extraEmails,
-        extraAddresses
+        extraAddresses,
       });
 
       res.status(201).json({ message: "Usuário cadastrado com sucesso!", user });
@@ -229,6 +209,35 @@ export class UserController {
       const { email } = req.body;
       const result = await UserService.resetPasswordByEmail(email);
       res.status(200).json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  static async changePassword(req: Request, res: Response) {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({ error: "Não autenticado" });
+        return;
+      }
+
+      const { currentPassword, newPassword, confirmPassword } = req.body;
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        res.status(400).json({ error: "Todos os campos são obrigatórios." });
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        res.status(400).json({ error: "A confirmação da nova senha não confere." });
+        return;
+      }
+
+      await UserService.changePassword(userId, currentPassword, newPassword);
+
+      res.status(200).json({ message: "Senha alterada com sucesso." });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }

@@ -148,6 +148,33 @@ export class UserService {
     return userPlain;
   }
 
+  // Método para trocar senha do usuário autenticado
+  static async changePassword(
+    userId: number,
+    currentPassword: string,
+    newPassword: string
+  ) {
+    const userRepository = AppDataSource.getRepository(User);
+
+    const user = await userRepository.findOneBy({ id: userId });
+    if (!user) throw new Error("Usuário não encontrado");
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) throw new Error("Senha atual incorreta");
+
+    if (newPassword.length < 6) {
+      throw new Error("A nova senha deve ter no mínimo 6 caracteres");
+    }
+
+    const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsCurrent) {
+      throw new Error("A nova senha não pode ser igual à senha atual");
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await userRepository.save(user);
+  }
+
   // Recuperar e-mail por CPF e data de nascimento
   static async recoverEmailByCpfAndNascimento(
     cpf: string,
@@ -197,13 +224,13 @@ export class UserService {
   static async resetPasswordByEmail(email: string) {
     const user = await userRepository.findOne({ where: { email } });
     if (!user) throw new Error("Usuário não encontrado");
-  
+
     const novaSenha = randomBytes(5).toString("hex"); // Ex: 10 caracteres
     user.password = await bcrypt.hash(novaSenha, 10);
     await userRepository.save(user);
-  
+
     await MailService.sendNewPasswordEmail(email, novaSenha);
-  
+
     return { message: "Nova senha enviada por e-mail" };
   }
 }

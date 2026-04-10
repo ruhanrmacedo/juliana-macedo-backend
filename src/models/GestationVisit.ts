@@ -21,8 +21,14 @@ export class GestationVisit {
     @Column("int", { name: "trimestre", nullable: true })
     trimestre?: 1 | 2 | 3;
 
+    // Pressão arterial máxima
     @Column("int", { name: "pa_sis", nullable: true }) paSistolica?: number;
+    
+    // Pressão arterial mínima
     @Column("int", { name: "pa_dia", nullable: true }) paDiastolica?: number;
+
+    @Column("decimal", { precision: 6, scale: 2, name: "cintura_cm", nullable: true })
+    cinturaCm?: number;
 
     @Column({ type: "text", nullable: true }) observacoes?: string;
 
