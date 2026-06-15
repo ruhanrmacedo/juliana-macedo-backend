@@ -22,7 +22,7 @@ export class PostService {
     content: string,
     postType: PostType,
     authorId: number,
-    imageUrl?: string
+    imageUrl?: string,
   ) {
     const author = await AppDataSource.getRepository(User).findOne({
       where: { id: authorId },
@@ -50,6 +50,14 @@ export class PostService {
     });
   }
 
+  // Buscar todos os posts (admin)
+  static async getAdminPosts() {
+    return await postRepository.find({
+      order: { createdAt: "DESC" },
+      relations: ["author", "editedBy"],
+    });
+  }
+
   // Buscar um post pelo ID
   static async getPostById(postId: number) {
     const post = await postRepository.findOne({
@@ -60,13 +68,6 @@ export class PostService {
     return post;
   }
 
-  // Buscar todos os posts (admin)
-  static async getAdminPosts() {
-    return await postRepository.find({
-      order: { createdAt: "DESC" },
-      relations: ["author", "editedBy"],
-    });
-  }
 
   // Atualizar um post
   static async updatePost(
@@ -76,7 +77,7 @@ export class PostService {
     title?: string,
     content?: string,
     postType?: PostType,
-    imageUrl?: string
+    imageUrl?: string,
   ) {
     const post = await postRepository.findOne({
       where: { id: postId },
@@ -85,7 +86,7 @@ export class PostService {
 
     if (!post) throw new Error("Post não encontrado");
 
-    if (!post.author || post.author.id !== userId && userRole !== "admin")
+    if (!post.author || (post.author.id !== userId && userRole !== "admin"))
       throw new Error("Apenas o autor ou um admin pode editar este post");
 
     if (title) post.title = title;
@@ -114,7 +115,7 @@ export class PostService {
 
     if (!post) throw new Error("Post não encontrado");
 
-    if (!post.author || post.author.id !== userId && userRole !== "admin")
+    if (!post.author || (post.author.id !== userId && userRole !== "admin"))
       throw new Error("Apenas o autor ou um admin pode desativar este post");
 
     post.isActive = !post.isActive;
@@ -182,7 +183,7 @@ export class PostService {
     title?: string,
     category?: string,
     author?: string,
-    date?: string
+    date?: string,
   ) {
     console.log("🛠️ Iniciando a montagem da query para filtrar posts...");
 
@@ -203,7 +204,7 @@ export class PostService {
     if (category) {
       console.log("📌 Filtrando por categoria:", category);
       const enumValue = Object.values(PostType).find(
-        (e) => e.toLowerCase() === category.toLowerCase()
+        (e) => e.toLowerCase() === category.toLowerCase(),
       );
       if (!enumValue) {
         console.log("❌ Categoria inválida:", category);
@@ -215,7 +216,9 @@ export class PostService {
     // 🔍 Filtrar por autor (name)
     if (author) {
       console.log("🔍 Buscando posts pelo autor:", author);
-      query.andWhere("author.name ILIKE :authorName", { authorName: `%${author}%` });
+      query.andWhere("author.name ILIKE :authorName", {
+        authorName: `%${author}%`,
+      });
     }
 
     // 🔍 Filtrar por data

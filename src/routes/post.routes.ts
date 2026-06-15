@@ -10,6 +10,7 @@ const router = Router();
 router.get("/postspaginated", PostController.getPaginated);
 router.get("/top", PostController.getTopViewed);
 router.get("/filter", PostController.filterPosts);
+router.get("/admin", authMiddleware, checkRole(["admin"]), PostController.getAdminPosts);
 
 // 🔹 CRUD de posts
 router.post("/", authMiddleware, upload.single("image"), PostController.createPost);
