@@ -19,7 +19,17 @@ import mealPlanRoutes from "./routes/mealPlanRoutes";
 import foodRoutes from "./routes/foodRoutes";
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:8080",
+      "http://localhost:5173",
+      "https://julianalcmacedo.com.br",
+      "https://www.julianalcmacedo.com.br",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.use("/auth", authRoutes);
