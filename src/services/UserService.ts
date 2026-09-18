@@ -6,28 +6,26 @@ import jwt from "jsonwebtoken";
 import { UserPhoneService } from "./UserPhoneService";
 import { UserEmailService } from "./UserEmailService";
 import { UserAddressService } from "./UserAddressService";
-import { MailService } from "./MailService";
-import { randomBytes } from "crypto";
+import { assertValidPassword } from "../utils/passwordPolicy";
 
 
 const userRepository = AppDataSource.getRepository(User);
 
 export class UserService {
   // Criar usuário (registro)
-  static async createUser(email: string, name: string, password: string, role: string = "user", cpf: string, dataNascimento: Date) {
-    const existingUser = await userRepository.findOne({ where: { email } });
+  static async createUser(email: string, name: string, password: string, cpf: string, dataNascimento: Date) {
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existingUser = await userRepository.findOne({ where: { email: normalizedEmail } });
     if (existingUser) throw new Error("Email já está em uso");
 
-    if (!password || typeof password !== "string") {
-      throw new Error("Senha inválida");
-    }
+    assertValidPassword(password);
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = userRepository.create({
-      email,
+      email: normalizedEmail,
       name,
       password: hashedPassword,
-      role: role as UserRole,
+      role: UserRole.USER,
       cpf,
       dataNascimento,
     });
@@ -39,19 +37,28 @@ export class UserService {
 
   // Buscar usuário pelo email
   static async findUserByEmail(email: string) {
-    return await userRepository.findOne({ where: { email } });
+    return await userRepository.findOne({
+      where: { email: String(email).trim().toLowerCase() },
+    });
   }
 
   // Validar senha e gerar token JWT (login)
   static async login(email: string, password: string) {
-    const user = await userRepository.findOne({ where: { email } });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const user = await userRepository.findOne({ where: { email: normalizedEmail } });
     if (!user) throw new Error("Usuário não encontrado");
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new Error("Senha inválida");
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, name: user.name },
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        authVersion: user.authVersion ?? 0,
+      },
       process.env.JWT_SECRET!,
       { expiresIn: "1h" }
     );
@@ -113,9 +120,10 @@ export class UserService {
     }
 
     // Cria o usuário com dados corrigidos
-    const userPlain = await this.createUser(email, name, password, "user", cleanedCpf, parsedDataNascimento);
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const userPlain = await this.createUser(normalizedEmail, name, password, cleanedCpf, parsedDataNascimento);
 
-    const user = await userRepository.findOneByOrFail({ email });
+    const user = await userRepository.findOneByOrFail({ email: normalizedEmail });
 
     // Telefones
     await UserPhoneService.addPhone(user.id, phone);
@@ -162,9 +170,7 @@ export class UserService {
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) throw new Error("Senha atual incorreta");
 
-    if (newPassword.length < 6) {
-      throw new Error("A nova senha deve ter no mínimo 6 caracteres");
-    }
+    assertValidPassword(newPassword);
 
     const isSameAsCurrent = await bcrypt.compare(newPassword, user.password);
     if (isSameAsCurrent) {
@@ -172,14 +178,14 @@ export class UserService {
     }
 
     user.password = await bcrypt.hash(newPassword, 10);
+    user.authVersion = (user.authVersion ?? 0) + 1;
     await userRepository.save(user);
   }
 
   // Recuperar e-mail por CPF e data de nascimento
   static async recoverEmailByCpfAndNascimento(
     cpf: string,
-    dataNascimento: string | Date,
-    showFullEmail: boolean = false
+    dataNascimento: string | Date
   ) {
     const cleanedCpf = cpf.replace(/[^\d]/g, "");
     const parsedDate = new Date(dataNascimento);
@@ -200,37 +206,12 @@ export class UserService {
       throw new Error("Usuário não encontrado com os dados informados");
     }
 
-    if (showFullEmail) {
-      return { email: user.email };
-    }
-
-    // Mascarar e-mail (ex: j****o@gmail.com)
     const [local, domain] = user.email.split("@");
-    let maskedLocal = "";
+    const maskedLocal =
+      local.length <= 2
+        ? `${local[0] ?? ""}${"*".repeat(Math.max(1, local.length - 1))}`
+        : `${local.slice(0, 2)}${"*".repeat(Math.max(1, local.length - 3))}${local.slice(-1)}`;
 
-    if (local.length <= 3) {
-      maskedLocal = local[0] + "*".repeat(local.length - 1);
-    } else {
-      const visibleStart = local.slice(0, 3); // exibe os 2 primeiros
-      const visibleEnd = local.slice(-2);     // exibe o último
-      const stars = "*".repeat(local.length - 3); // oculta o restante
-      maskedLocal = `${visibleStart}${stars}${visibleEnd}`;
-    }
-
-    const maskedEmail = `${maskedLocal}@${domain}`;
-    return { email: maskedEmail };
-  }
-
-  static async resetPasswordByEmail(email: string) {
-    const user = await userRepository.findOne({ where: { email } });
-    if (!user) throw new Error("Usuário não encontrado");
-
-    const novaSenha = randomBytes(5).toString("hex"); // Ex: 10 caracteres
-    user.password = await bcrypt.hash(novaSenha, 10);
-    await userRepository.save(user);
-
-    await MailService.sendNewPasswordEmail(email, novaSenha);
-
-    return { message: "Nova senha enviada por e-mail" };
+    return { email: `${maskedLocal}@${domain}` };
   }
 }

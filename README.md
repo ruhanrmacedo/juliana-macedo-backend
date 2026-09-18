@@ -134,6 +134,10 @@ A aplicação pode utilizar configuração por campos individuais ou `DATABASE_U
 CLOUDINARY_CLOUD_NAME=<cloudinary_cloud_name>
 CLOUDINARY_API_KEY=<cloudinary_api_key>
 CLOUDINARY_API_SECRET=<cloudinary_api_secret>
+RESEND_API_KEY=<resend_sending_api_key>
+EMAIL_FROM=Vida & Sabor <nao-responda@example.com>
+FRONTEND_URL=<frontend_public_url>
+# Legado temporário, não utilizado pelo fluxo atual de e-mail:
 EMAIL_USER=<smtp_user>
 EMAIL_PASS=<smtp_password>
 RECAPTCHA_REQUIRED=<true_or_false>

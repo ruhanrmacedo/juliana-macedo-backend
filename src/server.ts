@@ -19,6 +19,8 @@ import mealPlanRoutes from "./routes/mealPlanRoutes";
 import foodRoutes from "./routes/foodRoutes";
 
 const app = express();
+app.set("trust proxy", 1);
+
 app.use(
   cors({
     origin: [
@@ -60,7 +62,6 @@ app.use(
   }
 );
 
-app.set("trust proxy", true); // Para obter o IP real do usuário
 
 AppDataSource.initialize()
   .then(() => {

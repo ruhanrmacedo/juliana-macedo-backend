@@ -1,39 +1,23 @@
-import nodemailer from "nodemailer";
+import axios from "axios";
 
-const user = process.env.EMAIL_USER ?? "";
-const pass = (process.env.EMAIL_PASS ?? "").replace(/\s+/g, ""); // tira espaços por segurança
+export interface PasswordResetEmail { to: string; resetUrl: string; expiresInMinutes: number; }
+export type PasswordResetEmailSender = (message: PasswordResetEmail) => Promise<void>;
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  auth: { user, pass },
-});
+const RESEND_EMAILS_URL = "https://api.resend.com/emails";
+const RESEND_TIMEOUT_MS = 10_000;
 
-(async () => {
-  try {
-    console.log("[MAIL] user:", user);
-    console.log("[MAIL] pass length:", pass.length); // deve ser 16
-    await transporter.verify();
-    console.log("[MAIL] SMTP OK");
-  } catch (err: any) {
-    console.error(
-      "[MAIL] SMTP FAIL:",
-      err?.code,
-      err?.response || err?.message
-    );
-  }
-})();
+function escapeHtml(value: string): string { return value.replace(/[&<>\u0022\u0027]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\u0022": "&quot;", "\u0027": "&#039;" })[character]!); }
 
-export const MailService = {
-  async sendNewPasswordEmail(to: string, novaSenha: string) {
-    const info = await transporter.sendMail({
-      from: `"Suporte Juliana Macedo" <${user}>`,
-      to,
-      subject: "Nova senha de acesso",
-      text: `Sua nova senha de acesso é: ${novaSenha}`,
-      html: `<p>Sua nova senha de acesso é: <strong>${novaSenha}</strong></p>`,
-    });
-    console.log("E-mail enviado:", info.messageId);
-  },
+const sendPasswordResetEmail: PasswordResetEmailSender = async ({ to, resetUrl, expiresInMinutes }) => {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const from = process.env.EMAIL_FROM?.trim();
+  if (!apiKey || !from) throw new Error("Resend email provider is not configured");
+  const safeResetUrl = escapeHtml(resetUrl);
+  await axios.post(RESEND_EMAILS_URL, {
+    from, to: [to], subject: "Redefinição de senha - Vida & Sabor",
+    text: ["Recebemos uma solicitação para redefinir sua senha no Vida & Sabor.", "Acesse o link a seguir em até " + expiresInMinutes + " minutos:", resetUrl, "", "Se você não solicitou a redefinição, ignore este e-mail."].join("\n"),
+    html: ["<div style=\"font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;\">", "<h1 style=\"color: #15803d; font-size: 24px;\">Redefinição de senha</h1>", "<p>Recebemos uma solicitação para redefinir sua senha no Vida &amp; Sabor.</p>", "<p><a href=\"" + safeResetUrl + "\" style=\"display: inline-block; padding: 12px 20px; border-radius: 6px; background: #15803d; color: #ffffff; text-decoration: none; font-weight: bold;\">Redefinir minha senha</a></p>", "<p>Este link expira em " + expiresInMinutes + " minutos e pode ser usado apenas uma vez.</p>", "<p>Se você não solicitou a redefinição, ignore este e-mail.</p>", "</div>"].join(""),
+  }, { headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" }, timeout: RESEND_TIMEOUT_MS });
 };
+
+export const MailService = { sendPasswordResetEmail };

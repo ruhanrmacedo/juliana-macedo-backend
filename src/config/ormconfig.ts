@@ -15,7 +15,7 @@ export const AppDataSource = new DataSource(
         rejectUnauthorized: false,
       },
       synchronize: false,
-      logging: true,
+      logging: isProduction ? false : ["error", "warn", "migration"],
       entities: [isProduction ? "dist/models/**/*.js" : "src/models/**/*.ts"],
       migrations: [
         isProduction ? "dist/migrations/**/*.js" : "src/migrations/**/*.ts",
@@ -29,7 +29,7 @@ export const AppDataSource = new DataSource(
       password: process.env.DB_PASS,
       database: isTestEnv ? process.env.DB_TEST_NAME : process.env.DB_NAME,
       synchronize: false,
-      logging: true,
+      logging: isProduction ? false : ["error", "warn", "migration"],
       entities: ["src/models/**/*.ts"],
       migrations: ["src/migrations/**/*.ts"],
     }

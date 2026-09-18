@@ -47,6 +47,7 @@ async function seedAdmins() {
 
         if (existing) {
             userRepo.merge(existing, data);
+            existing.authVersion = (existing.authVersion ?? 0) + 1;
             await userRepo.save(existing);
             console.log(`Admin atualizado: ${email}`);
         } else {

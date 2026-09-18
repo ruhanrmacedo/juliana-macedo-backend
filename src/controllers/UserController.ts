@@ -11,10 +11,10 @@ export class UserController {
   // Rota de Registro
   static async register(req: Request, res: Response) {
     try {
-      const { email, name, password, role, cpf, dataNascimento } = req.body;
+      const { email, name, password, cpf, dataNascimento } = req.body;
       const cleanCpf = cpf.replace(/[^\d]/g, "");
       const parsedDataNascimento = new Date(dataNascimento);
-      const user = await UserService.createUser(email, name, password, role, cleanCpf, parsedDataNascimento);
+      const user = await UserService.createUser(email, name, password, cleanCpf, parsedDataNascimento);
       res.status(201).json(user);
       return;
     } catch (error: any) {
@@ -57,8 +57,6 @@ export class UserController {
         extraAddresses,
         captchaToken
       } = req.body;
-
-      console.log("Token recebido no cadastro:", captchaToken);
 
       // Verifica reCAPTCHA (respeita .env e header x-bypass-recaptcha)
       const ok = await verifyRecaptcha(captchaToken, req);
@@ -185,7 +183,7 @@ export class UserController {
   // Rota para recuperar e-mail pelo CPF e data de nascimento
   static async recoverEmail(req: Request, res: Response) {
     try {
-      const { cpf, dataNascimento, showFullEmail = false } = req.body;
+      const { cpf, dataNascimento } = req.body;
 
       if (!cpf || !dataNascimento) {
         res.status(400).json({ error: "CPF e data de nascimento são obrigatórios" });
@@ -194,20 +192,9 @@ export class UserController {
 
       const result = await UserService.recoverEmailByCpfAndNascimento(
         cpf,
-        dataNascimento,
-        showFullEmail
+        dataNascimento
       );
 
-      res.status(200).json(result);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  }
-
-  static async forgotPassword(req: Request, res: Response) {
-    try {
-      const { email } = req.body;
-      const result = await UserService.resetPasswordByEmail(email);
       res.status(200).json(result);
     } catch (error: any) {
       res.status(400).json({ error: error.message });

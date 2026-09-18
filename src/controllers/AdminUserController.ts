@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import { UserPhoneService } from "../services/UserPhoneService";
 import { UserEmailService } from "../services/UserEmailService";
 import { UserAddressService } from "../services/UserAddressService";
+import { getPasswordPolicyError } from "../utils/passwordPolicy";
 
 export class AdminUserController {
     static async updateUser(req: Request, res: Response) {
@@ -61,14 +62,16 @@ export class AdminUserController {
         try {
             const id = Number(req.params.id);
             const { password } = req.body as { password: string };
-            if (!password || typeof password !== "string" || password.length < 6) {
-                res.status(400).json({ error: "Senha inválida (mín. 6 caracteres)" }); return;
+            const passwordPolicyError = getPasswordPolicyError(password);
+            if (passwordPolicyError) {
+                res.status(400).json({ error: passwordPolicyError }); return;
             }
             const repo = AppDataSource.getRepository(User);
             const user = await repo.findOneBy({ id });
             if (!user) { res.status(404).json({ error: "Usuário não encontrado" }); return; }
 
             user.password = await bcrypt.hash(password, 10);
+            user.authVersion = (user.authVersion ?? 0) + 1;
             await repo.save(user);
             res.json({ message: "Senha atualizada com sucesso" });
         } catch (e: any) {

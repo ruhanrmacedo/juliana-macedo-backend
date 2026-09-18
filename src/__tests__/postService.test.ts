@@ -65,13 +65,14 @@ describe("PostService", () => {
     const post = await PostService.createPost(
       "Post Editável",
       "Conteúdo inicial",
-      PostType.ESTUDO,
+      PostType.ARTIGO,
       user.id
     );
 
     const updatedPost = await PostService.updatePost(
       post.id,
       user.id,
+      UserRole.USER,
       "Post Atualizado"
     );
 
@@ -86,7 +87,11 @@ describe("PostService", () => {
       user.id
     );
 
-    const toggledPost = await PostService.toggleActive(post.id, user.id);
+    const toggledPost = await PostService.toggleActive(
+      post.id,
+      user.id,
+      UserRole.USER
+    );
     expect(toggledPost.isActive).toBe(false);
   });
 
@@ -94,7 +99,7 @@ describe("PostService", () => {
     const post = await PostService.createPost(
       "Post para Excluir",
       "Vai ser excluído...",
-      PostType.BEM_ESTAR,
+      PostType.ALIMENTACAO,
       user.id
     );
 

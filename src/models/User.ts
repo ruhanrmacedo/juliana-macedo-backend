@@ -13,6 +13,7 @@ import { Comment } from "./Comment";
 import { UserPhone } from "./user-info/UserPhone";
 import { UserAddress } from "./user-info/UserAddress";
 import { UserEmail } from "./user-info/UserEmail";
+import { PasswordResetToken } from "./PasswordResetToken";
 
 export enum UserRole {
   ADMIN = "admin",
@@ -36,6 +37,9 @@ export class User {
 
   @Column({ default: "user" })
   role: UserRole;
+
+  @Column({ name: "auth_version", type: "int", default: 0 })
+  authVersion: number;
 
   @Column({ unique: true })
   cpf: string;
@@ -66,4 +70,7 @@ export class User {
 
   @OneToMany(() => UserEmail, (email) => email.user, { cascade: true })
   emails: UserEmail[];
+
+  @OneToMany(() => PasswordResetToken, (token) => token.user)
+  passwordResetTokens: PasswordResetToken[];
 }
