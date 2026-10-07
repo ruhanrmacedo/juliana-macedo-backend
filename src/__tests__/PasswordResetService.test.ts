@@ -28,6 +28,14 @@ async function createUser() {
   );
 }
 
+async function findUserWithPassword(id: number) {
+  return AppDataSource.getRepository(User)
+    .createQueryBuilder("user")
+    .addSelect("user.password")
+    .where("user.id = :id", { id })
+    .getOneOrFail();
+}
+
 describe("PasswordResetService", () => {
   beforeAll(async () => {
     if (!AppDataSource.isInitialized) await AppDataSource.initialize();
@@ -59,7 +67,7 @@ describe("PasswordResetService", () => {
     const savedToken = await AppDataSource.getRepository(PasswordResetToken).findOneByOrFail({
       userId: user.id,
     });
-    const reloadedUser = await AppDataSource.getRepository(User).findOneByOrFail({ id: user.id });
+    const reloadedUser = await findUserWithPassword(user.id);
 
     expect(reloadedUser.password).toBe(originalPasswordHash);
     expect(savedToken.tokenHash).toBe(
@@ -134,7 +142,7 @@ describe("PasswordResetService", () => {
     const savedToken = await AppDataSource.getRepository(PasswordResetToken).findOneByOrFail({
       userId: user.id,
     });
-    const reloadedUser = await AppDataSource.getRepository(User).findOneByOrFail({ id: user.id });
+    const reloadedUser = await findUserWithPassword(user.id);
 
     expect(savedToken.invalidatedAt).toBeInstanceOf(Date);
     expect(reloadedUser.password).toBe(originalPasswordHash);
@@ -152,7 +160,7 @@ describe("PasswordResetService", () => {
     const rawToken = tokenFromUrl(resetUrl);
     await PasswordResetService.resetPassword(rawToken, "NovaSenha123");
 
-    const reloadedUser = await AppDataSource.getRepository(User).findOneByOrFail({ id: user.id });
+    const reloadedUser = await findUserWithPassword(user.id);
     const savedToken = await AppDataSource.getRepository(PasswordResetToken).findOneByOrFail({
       userId: user.id,
     });
@@ -180,9 +188,7 @@ describe("PasswordResetService", () => {
     });
     expect(savedToken.usedAt).toBeNull();
     await PasswordResetService.resetPassword(rawToken, "12345678");
-    const reloadedUser = await AppDataSource.getRepository(User).findOneByOrFail({
-      id: user.id,
-    });
+    const reloadedUser = await findUserWithPassword(user.id);
     expect(await bcrypt.compare("12345678", reloadedUser.password)).toBe(true);
   });
 
@@ -204,7 +210,7 @@ describe("PasswordResetService", () => {
       PasswordResetService.resetPassword(tokenFromUrl(resetUrl), "NovaSenha123")
     ).rejects.toThrow("Token inválido ou expirado");
 
-    const reloadedUser = await AppDataSource.getRepository(User).findOneByOrFail({ id: user.id });
+    const reloadedUser = await findUserWithPassword(user.id);
     expect(reloadedUser.password).toBe(originalPasswordHash);
   });
 });

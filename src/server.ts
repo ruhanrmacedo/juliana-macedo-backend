@@ -17,6 +17,7 @@ import adminUserRoutes from "./routes/admin.user.routes";
 import gestationRoutes from "./routes/gestation.routes";
 import mealPlanRoutes from "./routes/mealPlanRoutes";
 import foodRoutes from "./routes/foodRoutes";
+import { responseSanitizer } from "./middleware/responseSanitizer";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -33,6 +34,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(responseSanitizer);
 
 app.use("/auth", authRoutes);
 app.use("/post", postRoutes);

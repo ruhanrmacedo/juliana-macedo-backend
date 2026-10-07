@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { CommentService } from "../services/CommentService";
 import { AppDataSource } from "../config/ormconfig";
 import { Comment } from "../models/Comment";
+import { toCommentDto } from "../serializers/commentSerializer";
 
 export class CommentController {
     static async create(req: Request, res: Response) {
@@ -26,7 +27,7 @@ export class CommentController {
             }
 
             const comment = await CommentService.create(postId, userId, content);
-            res.status(201).json(comment);
+            res.status(201).json(toCommentDto(comment));
             return;
         } catch (error: any) {
             res.status(400).json({ error: error.message });
@@ -46,7 +47,7 @@ export class CommentController {
             }
 
             const comment = await CommentService.update(commentId, userId, content);
-            res.json(comment);
+            res.json(toCommentDto(comment));
             return;
         } catch (error: any) {
             res.status(400).json({ error: error.message });
@@ -78,7 +79,7 @@ export class CommentController {
         try {
             const { postId } = req.params;
             const comments = await CommentService.listByPost(+postId);
-            res.json(comments);
+            res.json(comments.map(toCommentDto));
             return;
         } catch (error: any) {
             res.status(400).json({ error: error.message });
@@ -98,7 +99,10 @@ export class CommentController {
                 page,
                 limit
             );
-            res.json(result);
+            res.json({
+                comments: result.comments.map(toCommentDto),
+                total: result.total,
+            });
             return;
         } catch (error: any) {
             res.status(400).json({ error: error.message });

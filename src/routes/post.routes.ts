@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { PostController } from "../controllers/PostController";
 import { authMiddleware, checkRole } from "../middleware/authMiddleware";
-import { upload } from "../middleware/upload";
+import { uploadSingleImage } from "../middleware/upload";
+import { mediaUploadRateLimit } from "../middleware/mediaUploadRateLimit";
 
 const router = Router();
 
@@ -14,7 +15,8 @@ router.post(
   "/",
   authMiddleware,
   checkRole(["admin"]),
-  upload.single("image"),
+  mediaUploadRateLimit,
+  uploadSingleImage,
   PostController.createPost
 );
 router.get("/", PostController.getAllPosts);
@@ -23,7 +25,8 @@ router.put(
   "/:id",
   authMiddleware,
   checkRole(["admin"]),
-  upload.single("image"),
+  mediaUploadRateLimit,
+  uploadSingleImage,
   PostController.updatePost
 );
 router.patch(

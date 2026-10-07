@@ -45,7 +45,11 @@ export class UserService {
   // Validar senha e gerar token JWT (login)
   static async login(email: string, password: string) {
     const normalizedEmail = String(email).trim().toLowerCase();
-    const user = await userRepository.findOne({ where: { email: normalizedEmail } });
+    const user = await userRepository
+      .createQueryBuilder("user")
+      .addSelect("user.password")
+      .where("user.email = :email", { email: normalizedEmail })
+      .getOne();
     if (!user) throw new Error("Usuário não encontrado");
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -164,7 +168,11 @@ export class UserService {
   ) {
     const userRepository = AppDataSource.getRepository(User);
 
-    const user = await userRepository.findOneBy({ id: userId });
+    const user = await userRepository
+      .createQueryBuilder("user")
+      .addSelect("user.password")
+      .where("user.id = :userId", { userId })
+      .getOne();
     if (!user) throw new Error("Usuário não encontrado");
 
     const isMatch = await bcrypt.compare(currentPassword, user.password);

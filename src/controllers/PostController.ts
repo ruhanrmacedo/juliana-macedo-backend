@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { PostService } from "../services/PostService";
 import { PostType } from "../models/enums/PostType";
-import { cloudinary } from "../config/cloudinary";
-import { UploadApiResponse, UploadApiErrorResponse } from "cloudinary";
+import { uploadPostImage } from "../utils/imageUpload";
+import { toPostDto } from "../serializers/postSerializer";
 
 export class PostController {
   static async createPost(req: Request, res: Response) {
@@ -17,23 +17,7 @@ export class PostController {
       let finalImageUrl: string | undefined = imageUrl;
 
       if (req.file) {
-        const fileBuffer = req.file.buffer;
-
-        const uploaded: UploadApiResponse = await new Promise(
-          (resolve, reject) => {
-            const stream = cloudinary.uploader.upload_stream(
-              { folder: "posts", resource_type: "image" },
-              (
-                error: UploadApiErrorResponse | undefined,
-                result: UploadApiResponse | undefined
-              ) => {
-                if (error || !result) return reject(error);
-                resolve(result);
-              }
-            );
-            stream.end(fileBuffer);
-          }
-        );
+        const uploaded = await uploadPostImage(req.file);
 
         finalImageUrl = uploaded.secure_url;
       }
@@ -46,7 +30,7 @@ export class PostController {
         finalImageUrl
       );
 
-      res.status(201).json(post);
+      res.status(201).json(toPostDto(post));
       return;
     } catch (err: unknown) {
       console.error("Erro no createPost:", err);
@@ -59,7 +43,7 @@ export class PostController {
   static async getAllPosts(req: Request, res: Response) {
     try {
       const posts = await PostService.getAllPosts();
-      res.json(posts);
+      res.json(posts.map(toPostDto));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -78,7 +62,7 @@ export class PostController {
       }
 
       const posts = await PostService.getAdminPosts();
-      res.json(posts);
+      res.json(posts.map(toPostDto));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -94,7 +78,7 @@ export class PostController {
 
       await PostService.incrementPostViews(postId);
       const post = await PostService.getPostById(postId);
-      res.json(post);
+      res.json(toPostDto(post));
       return;
     } catch (error: any) {
       console.error("Erro no getPostById:", error);
@@ -121,23 +105,7 @@ export class PostController {
       let finalImageUrl: string | undefined = imageUrl;
 
       if (req.file) {
-        const fileBuffer = req.file.buffer;
-
-        const uploaded: UploadApiResponse = await new Promise(
-          (resolve, reject) => {
-            const stream = cloudinary.uploader.upload_stream(
-              { folder: "posts", resource_type: "image" },
-              (
-                error: UploadApiErrorResponse | undefined,
-                result: UploadApiResponse | undefined
-              ) => {
-                if (error || !result) return reject(error);
-                resolve(result);
-              }
-            );
-            stream.end(fileBuffer);
-          }
-        );
+        const uploaded = await uploadPostImage(req.file);
 
         finalImageUrl = uploaded.secure_url;
       }
@@ -152,7 +120,7 @@ export class PostController {
         finalImageUrl
       );
 
-      res.json(post);
+      res.json(toPostDto(post));
       return;
     } catch (err: unknown) {
       console.error("Erro no updatePost:", err);
@@ -173,7 +141,7 @@ export class PostController {
       const userId = req.user.id;
 
       const post = await PostService.toggleActive(postId, userId, req.user.role);
-      res.json(post);
+      res.json(toPostDto(post));
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -231,7 +199,7 @@ export class PostController {
         "✅ Posts filtrados com sucesso! Total de posts encontrados:",
         posts.length
       );
-      res.json(posts);
+      res.json(posts.map(toPostDto));
     } catch (error: any) {
       console.error("🚨 Erro ao filtrar posts:", error.message);
       res.status(400).json({ error: error.message });

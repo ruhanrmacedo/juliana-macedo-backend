@@ -3,9 +3,13 @@ import { MealPlan } from "../../models/diet/MealPlan";
 import { normalizeDateInput, sortPlanStructure } from "./MealPlanMappers";
 import { assertCanAccessPatient } from "./MealPlanPolicies";
 import type { MealPlanListFilters, RequesterContext } from "../../types/types";
+import {
+    toMealPlanDetailDto,
+    toMealPlanListItemDto,
+} from "../../serializers/mealPlanSerializer";
 
 export const MealPlanReader = {
-    async listPlansByPatient(patientId: number, requester?: RequesterContext, filters: MealPlanListFilters = {}) {
+    async listPlansByPatient(patientId: number, requester: RequesterContext, filters: MealPlanListFilters = {}) {
         assertCanAccessPatient(patientId, requester);
 
         const repo = AppDataSource.getRepository(MealPlan);
@@ -23,14 +27,10 @@ export const MealPlanReader = {
         if (startTo) qb.andWhere("plan.start_date <= :startTo", { startTo });
 
         const plans = await qb.orderBy("plan.created_at", "DESC").getMany();
-        return plans.map(p => ({
-            id: p.id, title: p.title, notes: p.notes,
-            startDate: p.startDate, endDate: p.endDate, isActive: p.isActive,
-            createdAt: p.createdAt, updatedAt: p.updatedAt, createdBy: p.createdBy,
-        }));
+        return plans.map(toMealPlanListItemDto);
     },
 
-    async getMealPlanById(planId: number, requester?: RequesterContext) {
+    async getMealPlanById(planId: number, requester: RequesterContext) {
         const repo = AppDataSource.getRepository(MealPlan);
         const plan = await repo.findOne({
             where: { id: planId },
@@ -48,6 +48,6 @@ export const MealPlanReader = {
 
         if (!plan) return null;
         assertCanAccessPatient(plan.patient.id, requester);
-        return sortPlanStructure(plan);
+        return toMealPlanDetailDto(sortPlanStructure(plan));
     },
 };

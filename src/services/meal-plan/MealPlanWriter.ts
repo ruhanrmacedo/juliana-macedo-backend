@@ -6,7 +6,11 @@ import { Meal } from "../../models/diet/Meal";
 import { MealItem } from "../../models/diet/MealItem";
 import { User } from "../../models/User";
 import { MealPlanReader } from "./MealPlanReader";
-import { isStaff, assertCanAccessPatient } from "./MealPlanPolicies";
+import {
+    isStaff,
+    assertCanAccessPatient,
+    assertCanManageMealPlans,
+} from "./MealPlanPolicies";
 import { normalizeDateInput } from "./MealPlanMappers";
 import { collectReferences, loadReferenceMaps, ensureMeasureMatchesVariant } from "./MealPlanRefs";
 import { validateScheduledTime, validateWeekday, toDecimalString, toPositiveInt } from "./MealPlanValidators";
@@ -66,7 +70,8 @@ async function createMealsForContainer(manager: any, params: {
 }
 
 export const MealPlanWriter = {
-    async createMealPlan(input: CreateMealPlanInput, requester?: RequesterContext) {
+    async createMealPlan(input: CreateMealPlanInput, requester: RequesterContext) {
+        assertCanManageMealPlans(requester);
         if (!input.title?.trim()) throw new BadRequest("Título do plano é obrigatório.");
 
         const patientId = toPositiveInt(input.patientId, "patientId");
@@ -129,7 +134,8 @@ export const MealPlanWriter = {
         return plan!;
     },
 
-    async updateMealPlan(planIdInput: number | string, input: UpdateMealPlanInput, requester?: RequesterContext) {
+    async updateMealPlan(planIdInput: number | string, input: UpdateMealPlanInput, requester: RequesterContext) {
+        assertCanManageMealPlans(requester);
         const planId = toPositiveInt(planIdInput, "planId");
 
         if (input.title !== undefined && (!input.title?.trim()))
@@ -216,7 +222,8 @@ export const MealPlanWriter = {
         return plan!;
     },
 
-    async setMealPlanActive(planIdInput: number | string, isActive: boolean, requester?: RequesterContext) {
+    async setMealPlanActive(planIdInput: number | string, isActive: boolean, requester: RequesterContext) {
+        assertCanManageMealPlans(requester);
         const planId = toPositiveInt(planIdInput, "planId");
         const repo = AppDataSource.getRepository(MealPlan);
         const plan = await repo.findOne({ where: { id: planId }, relations: { patient: true } });
@@ -231,7 +238,8 @@ export const MealPlanWriter = {
         return reloaded!;
     },
 
-    async deleteMealPlan(planIdInput: number | string, requester?: RequesterContext) {
+    async deleteMealPlan(planIdInput: number | string, requester: RequesterContext) {
+        assertCanManageMealPlans(requester);
         const planId = toPositiveInt(planIdInput, "planId");
 
         await AppDataSource.transaction(async (manager) => {
