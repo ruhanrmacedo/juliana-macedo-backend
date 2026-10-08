@@ -18,6 +18,7 @@ import gestationRoutes from "./routes/gestation.routes";
 import mealPlanRoutes from "./routes/mealPlanRoutes";
 import foodRoutes from "./routes/foodRoutes";
 import { responseSanitizer } from "./middleware/responseSanitizer";
+import { PostController } from "./controllers/PostController";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -36,6 +37,7 @@ app.use(
 app.use(express.json());
 app.use(responseSanitizer);
 
+app.get("/sitemap.xml", PostController.sitemap);
 app.use("/auth", authRoutes);
 app.use("/post", postRoutes);
 app.use("/metrics", userMetricsRoutes);

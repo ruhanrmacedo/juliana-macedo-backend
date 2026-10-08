@@ -1,11 +1,22 @@
-import { Between, ILike } from "typeorm";
-import { AppDataSource } from "../config/ormconfig";
+﻿import { AppDataSource } from "../config/ormconfig";
 import { Post } from "../models/Post";
 import { User } from "../models/User";
 import { PostType } from "../models/enums/PostType";
+import { EditorialChannel } from "../models/enums/EditorialChannel";
+import { ContentFormat } from "../models/enums/ContentFormat";
+import { EditorialStatus } from "../models/enums/EditorialStatus";
+import { Category } from "../models/Category";
+import { Tag } from "../models/Tag";
+import { AuthorProfile } from "../models/AuthorProfile";
+import { PostSlugRedirect } from "../models/PostSlugRedirect";
+import {
+  buildExcerpt,
+  canonicalPostPath,
+  normalizeSlug,
+  sanitizeEditorialHtml,
+} from "../utils/editorial";
 
 const postRepository = AppDataSource.getRepository(Post);
-
 const slugToEnum: Record<string, PostType> = {
   receitas: PostType.RECEITA,
   saude: PostType.SAUDE,
@@ -14,258 +25,382 @@ const slugToEnum: Record<string, PostType> = {
   dicas: PostType.DICAS,
   novidades: PostType.NOVIDADES,
 };
+const JULIANA_AUTHOR_SLUG = "juliana-lacerda-macedo";
+const PUBLIC_RELATIONS = ["authorProfile", "category", "tags"];
+const ADMIN_RELATIONS = ["author", "editedBy", ...PUBLIC_RELATIONS];
+
+export type EditorialPostInput = {
+  title: string;
+  content: string;
+  postType?: PostType;
+  slug?: string;
+  excerpt?: string;
+  channel?: EditorialChannel;
+  format?: ContentFormat;
+  status?: EditorialStatus;
+  publishedAt?: string | Date | null;
+  categoryId?: number | null;
+  tagNames?: string[];
+  authorProfileId?: number;
+  imageUrl?: string | null;
+  imageAlt?: string | null;
+  imageCaption?: string | null;
+  imageCredit?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+  isFeatured?: boolean;
+  featuredPriority?: number | null;
+};
+
+function assertEnumValue<T extends string>(value: T, values: readonly T[], label: string) {
+  if (!values.includes(value)) throw new Error(`${label} inválido`);
+}
+
+function publicQuery() {
+  return postRepository
+    .createQueryBuilder("post")
+    .leftJoinAndSelect("post.authorProfile", "authorProfile")
+    .leftJoinAndSelect("post.category", "category")
+    .leftJoinAndSelect("post.tags", "tags")
+    .where("post.status = :status", { status: EditorialStatus.PUBLISHED })
+    .andWhere("post.isActive = true")
+    .andWhere('post."publishedAt" IS NOT NULL')
+    .andWhere('post."publishedAt" <= CURRENT_TIMESTAMP');
+}
 
 export class PostService {
-  // Criar um novo post teste
+  private static async defaultAuthorProfile() {
+    const profile = await AppDataSource.getRepository(AuthorProfile).findOne({
+      where: { slug: JULIANA_AUTHOR_SLUG, isActive: true },
+    });
+    if (!profile) throw new Error("Perfil público da Juliana não encontrado");
+    return profile;
+  }
+
+  private static async uniqueSlug(requested: string, postId?: number) {
+    const base = normalizeSlug(requested);
+    if (!base) throw new Error("Slug inválido");
+    let candidate = base;
+    let suffix = 2;
+    while (true) {
+      const existing = await postRepository
+        .createQueryBuilder("post")
+        .where("LOWER(post.slug) = LOWER(:slug)", { slug: candidate })
+        .andWhere(postId ? "post.id <> :postId" : "1=1", { postId })
+        .getOne();
+      const redirect = await AppDataSource.getRepository(PostSlugRedirect)
+        .createQueryBuilder("redirect")
+        .where("LOWER(redirect.oldSlug) = LOWER(:slug)", { slug: candidate })
+        .getOne();
+      if (!existing && !redirect) return candidate;
+      candidate = `${base}-${suffix++}`;
+    }
+  }
+
+  private static async resolveTags(tagNames: string[] = []) {
+    const repository = AppDataSource.getRepository(Tag);
+    const normalized = [...new Set(tagNames.map((name) => name.trim()).filter(Boolean))].slice(0, 20);
+    const tags: Tag[] = [];
+    for (const name of normalized) {
+      const slug = normalizeSlug(name);
+      if (!slug) continue;
+      let tag = await repository
+        .createQueryBuilder("tag")
+        .where("LOWER(tag.slug) = LOWER(:slug)", { slug })
+        .getOne();
+      if (!tag) tag = await repository.save(repository.create({ name, slug }));
+      tags.push(tag);
+    }
+    return tags;
+  }
+
+  private static validateForPublish(input: {
+    title: string;
+    content: string;
+    excerpt: string;
+    imageUrl?: string | null;
+    imageAlt?: string | null;
+    publishedAt?: Date | null;
+  }) {
+    if (!input.title.trim()) throw new Error("Título é obrigatório para publicar");
+    if (!input.content.trim()) throw new Error("Conteúdo é obrigatório para publicar");
+    if (!input.excerpt.trim()) throw new Error("Resumo é obrigatório para publicar");
+    if (input.imageUrl && !input.imageAlt?.trim()) {
+      throw new Error("Texto alternativo é obrigatório para publicar uma imagem");
+    }
+    if (!input.publishedAt) throw new Error("Data de publicação é obrigatória");
+  }
+
   static async createPost(
-    title: string,
-    content: string,
-    postType: PostType,
-    authorId: number,
-    imageUrl?: string,
+    inputOrTitle: EditorialPostInput | string,
+    legacyContent?: string,
+    legacyPostType?: PostType,
+    legacyAuthorId?: number,
+    legacyImageUrl?: string,
   ) {
-    const author = await AppDataSource.getRepository(User).findOne({
-      where: { id: authorId },
-    });
-    if (!author) throw new Error("Autor não encontrado");
+    const input: EditorialPostInput = typeof inputOrTitle === "string"
+      ? {
+          title: inputOrTitle,
+          content: legacyContent || "",
+          postType: legacyPostType || PostType.ARTIGO,
+          format: legacyPostType === PostType.RECEITA ? ContentFormat.RECIPE : ContentFormat.ARTICLE,
+          status: EditorialStatus.PUBLISHED,
+          imageUrl: legacyImageUrl,
+          imageAlt: legacyImageUrl ? inputOrTitle : undefined,
+        }
+      : inputOrTitle;
+    const authorId = typeof inputOrTitle === "string" ? legacyAuthorId! : legacyAuthorId!;
+    const author = await AppDataSource.getRepository(User).findOne({ where: { id: authorId } });
+    if (!author) throw new Error("Autor técnico não encontrado");
 
-    const post = postRepository.create({
-      title,
-      content,
-      postType,
-      isActive: true,
-      author,
-      imageUrl,
-    });
-
-    await postRepository.save(post);
-    return post;
-  }
-
-  // Listar todos os posts ativos
-  static async getAllPosts() {
-    return await postRepository.find({
-      where: { isActive: true },
-      relations: ["author", "editedBy"],
-    });
-  }
-
-  // Buscar todos os posts (admin)
-  static async getAdminPosts() {
-    return await postRepository.find({
-      order: { createdAt: "DESC" },
-      relations: ["author", "editedBy"],
-    });
-  }
-
-  // Buscar um post pelo ID
-  static async getPostById(postId: number) {
-    const post = await postRepository.findOne({
-      where: { id: postId },
-      relations: ["author", "editedBy"],
-    });
-    if (!post) throw new Error("Post não encontrado");
-    return post;
-  }
-
-
-  // Atualizar um post
-  static async updatePost(
-    postId: number,
-    userId: number,
-    userRole: string,
-    title?: string,
-    content?: string,
-    postType?: PostType,
-    imageUrl?: string,
-  ) {
-    const post = await postRepository.findOne({
-      where: { id: postId },
-      relations: ["author"], // Trazendo o autor
-    });
-
-    if (!post) throw new Error("Post não encontrado");
-
-    if (!post.author || (post.author.id !== userId && userRole !== "admin"))
-      throw new Error("Apenas o autor ou um admin pode editar este post");
-
-    if (title) post.title = title;
-    if (content) post.content = content;
-    if (postType) post.postType = postType;
-    if (imageUrl) post.imageUrl = imageUrl;
-
-    const editor = await AppDataSource.getRepository(User).findOne({
-      where: { id: userId },
-    });
-
-    if (editor) {
-      post.editedBy = editor;
+    const cleanContent = sanitizeEditorialHtml(input.content);
+    const status = input.status || EditorialStatus.DRAFT;
+    const channel = input.channel || EditorialChannel.CONTENT;
+    const format = input.format || (input.postType === PostType.RECEITA ? ContentFormat.RECIPE : ContentFormat.ARTICLE);
+    assertEnumValue(channel, Object.values(EditorialChannel), "Canal");
+    assertEnumValue(format, Object.values(ContentFormat), "Formato");
+    assertEnumValue(status, Object.values(EditorialStatus), "Status");
+    if (channel === EditorialChannel.BLOG && format !== ContentFormat.ARTICLE) {
+      throw new Error("Publicações do Blog devem usar o formato ARTICLE");
     }
 
-    await postRepository.save(post);
-    return post;
-  }
+    const publishedAt = status === EditorialStatus.PUBLISHED
+      ? input.publishedAt ? new Date(input.publishedAt) : new Date()
+      : input.publishedAt ? new Date(input.publishedAt) : null;
+    const excerpt = input.excerpt?.trim() || buildExcerpt(cleanContent);
+    if (status === EditorialStatus.PUBLISHED) {
+      this.validateForPublish({ ...input, content: cleanContent, excerpt, publishedAt });
+    }
 
-  // Alternar ativo/inativo
-  static async toggleActive(postId: number, userId: number, userRole: string) {
-    const post = await postRepository.findOne({
-      where: { id: postId },
-      relations: ["author"],
+    const category = input.categoryId
+      ? await AppDataSource.getRepository(Category).findOne({ where: { id: input.categoryId, isActive: true } })
+      : null;
+    if (input.categoryId && !category) throw new Error("Categoria não encontrada");
+    const authorProfile = input.authorProfileId
+      ? await AppDataSource.getRepository(AuthorProfile).findOne({ where: { id: input.authorProfileId, isActive: true } })
+      : await this.defaultAuthorProfile();
+    if (!authorProfile) throw new Error("Perfil público de autoria não encontrado");
+
+    const post = postRepository.create({
+      title: input.title.trim(),
+      slug: await this.uniqueSlug(input.slug || input.title),
+      content: cleanContent,
+      excerpt,
+      postType: input.postType || (format === ContentFormat.RECIPE ? PostType.RECEITA : PostType.ARTIGO),
+      channel,
+      format,
+      status,
+      publishedAt,
+      isActive: status === EditorialStatus.PUBLISHED,
+      imageUrl: input.imageUrl || null,
+      imageAlt: input.imageAlt?.trim() || null,
+      imageCaption: input.imageCaption?.trim() || null,
+      imageCredit: input.imageCredit?.trim() || null,
+      seoTitle: input.seoTitle?.trim() || null,
+      seoDescription: input.seoDescription?.trim() || null,
+      isFeatured: Boolean(input.isFeatured),
+      featuredPriority: input.isFeatured ? input.featuredPriority ?? 0 : null,
+      author,
+      authorProfile,
+      category,
+      tags: await this.resolveTags(input.tagNames),
     });
+    return postRepository.save(post);
+  }
 
+  static async updatePost(postId: number, userId: number, userRole: string, inputOrTitle: Partial<EditorialPostInput> | string, legacyContent?: string, legacyPostType?: PostType, legacyImageUrl?: string) {
+    const input: Partial<EditorialPostInput> = typeof inputOrTitle === "string"
+      ? { title: inputOrTitle, content: legacyContent, postType: legacyPostType, imageUrl: legacyImageUrl }
+      : inputOrTitle;
+    const post = await postRepository.findOne({ where: { id: postId }, relations: ADMIN_RELATIONS });
     if (!post) throw new Error("Post não encontrado");
+    if (userRole !== "admin" && post.author?.id !== userId) {
+      throw new Error("Apenas o autor ou um admin pode editar este post");
+    }
 
-    if (!post.author || (post.author.id !== userId && userRole !== "admin"))
-      throw new Error("Apenas o autor ou um admin pode desativar este post");
+    const wasPublished = post.status === EditorialStatus.PUBLISHED;
+    if (input.title !== undefined) post.title = input.title.trim();
+    if (input.content !== undefined) post.content = sanitizeEditorialHtml(input.content);
+    if (input.excerpt !== undefined) post.excerpt = input.excerpt.trim() || buildExcerpt(post.content);
+    if (input.postType !== undefined) post.postType = input.postType;
+    if (input.channel !== undefined) post.channel = input.channel;
+    if (input.format !== undefined) post.format = input.format;
+    if (input.status !== undefined) post.status = input.status;
+    if (input.publishedAt !== undefined) post.publishedAt = input.publishedAt ? new Date(input.publishedAt) : null;
+    if (post.status === EditorialStatus.PUBLISHED && !post.publishedAt) post.publishedAt = new Date();
+    if (input.imageUrl !== undefined) post.imageUrl = input.imageUrl || null;
+    if (input.imageAlt !== undefined) post.imageAlt = input.imageAlt?.trim() || null;
+    if (input.imageCaption !== undefined) post.imageCaption = input.imageCaption?.trim() || null;
+    if (input.imageCredit !== undefined) post.imageCredit = input.imageCredit?.trim() || null;
+    if (input.seoTitle !== undefined) post.seoTitle = input.seoTitle?.trim() || null;
+    if (input.seoDescription !== undefined) post.seoDescription = input.seoDescription?.trim() || null;
+    if (input.isFeatured !== undefined) post.isFeatured = input.isFeatured;
+    if (input.featuredPriority !== undefined) post.featuredPriority = input.featuredPriority;
+    if (!post.isFeatured) post.featuredPriority = null;
+    if (input.categoryId !== undefined) {
+      post.category = input.categoryId
+        ? await AppDataSource.getRepository(Category).findOne({ where: { id: input.categoryId, isActive: true } })
+        : null;
+      if (input.categoryId && !post.category) throw new Error("Categoria não encontrada");
+    }
+    if (input.authorProfileId !== undefined) {
+      const profile = await AppDataSource.getRepository(AuthorProfile).findOne({ where: { id: input.authorProfileId, isActive: true } });
+      if (!profile) throw new Error("Perfil público de autoria não encontrado");
+      post.authorProfile = profile;
+    }
+    if (input.tagNames !== undefined) post.tags = await this.resolveTags(input.tagNames);
+    if (post.channel === EditorialChannel.BLOG && post.format !== ContentFormat.ARTICLE) throw new Error("Publicações do Blog devem usar ARTICLE");
 
-    post.isActive = !post.isActive;
-    await postRepository.save(post);
+    if (input.slug !== undefined) {
+      const normalized = normalizeSlug(input.slug);
+      if (normalized !== post.slug) {
+        const newSlug = await this.uniqueSlug(normalized, post.id);
+        if (wasPublished) {
+          const redirects = AppDataSource.getRepository(PostSlugRedirect);
+          await redirects.save(redirects.create({ oldSlug: post.slug, post }));
+        }
+        post.slug = newSlug;
+      }
+    }
+    if (!post.excerpt) post.excerpt = buildExcerpt(post.content);
+    if (post.status === EditorialStatus.PUBLISHED) this.validateForPublish(post);
+    post.isActive = post.status === EditorialStatus.PUBLISHED;
+    const editor = await AppDataSource.getRepository(User).findOne({ where: { id: userId } });
+    if (editor) post.editedBy = editor;
+    return postRepository.save(post);
+  }
+
+  static async getAllPosts() {
+    return publicQuery().orderBy('post."publishedAt"', "DESC").getMany();
+  }
+
+  static async getAdminPosts() {
+    return postRepository.find({ order: { updatedAt: "DESC" }, relations: ADMIN_RELATIONS });
+  }
+
+  static async getAdminPostById(postId: number) {
+    const post = await postRepository.findOne({ where: { id: postId }, relations: ADMIN_RELATIONS });
+    if (!post) throw new Error("Post não encontrado");
     return post;
   }
 
-  // Deletar permanentemente um post (apenas Admin)
-  static async deletePost(postId: number, userRole: string) {
-    if (userRole !== "admin")
-      throw new Error("Apenas admins podem deletar posts permanentemente");
-
-    const post = await postRepository.findOne({ where: { id: postId } });
-    if (!post) throw new Error("Post não encontrado");
-
-    await postRepository.remove(post);
-    return { message: "Post deletado permanentemente." };
+  // Compatibilidade interna temporária com chamadas legadas do serviço.
+  static async getPostById(postId: number) {
+    return this.getAdminPostById(postId);
   }
 
-  // Contar número de views de um post
+  static async getPublicPostById(postId: number) {
+    const post = await publicQuery().andWhere("post.id = :postId", { postId }).getOne();
+    if (!post) throw new Error("Conteúdo não encontrado");
+    return post;
+  }
+
+  static async getPublicPostBySlug(slug: string) {
+    const normalized = normalizeSlug(slug);
+    let post = await publicQuery().andWhere("LOWER(post.slug) = LOWER(:slug)", { slug: normalized }).getOne();
+    let redirectedFrom: string | null = null;
+    if (!post) {
+      const redirect = await AppDataSource.getRepository(PostSlugRedirect)
+        .createQueryBuilder("redirect")
+        .leftJoinAndSelect("redirect.post", "post")
+        .where("LOWER(redirect.oldSlug) = LOWER(:slug)", { slug: normalized })
+        .getOne();
+      if (redirect) {
+        post = await publicQuery().andWhere("post.id = :id", { id: redirect.post.id }).getOne();
+        redirectedFrom = normalized;
+      }
+    }
+    if (!post) throw new Error("Conteúdo não encontrado");
+    return { post, redirectedFrom, canonicalPath: canonicalPostPath(post) };
+  }
+
   static async incrementPostViews(postId: number) {
     await postRepository.increment({ id: postId }, "views", 1);
   }
 
-  //  Listar posts com paginação
-  static async getPaginated(page = 1, limit = 10, typeSlug?: string) {
-    const currentPage = Math.max(1, Number(page) || 1);
-    const pageSize = Math.max(1, Number(limit) || 10);
-
-    const qb = AppDataSource.getRepository(Post)
-      .createQueryBuilder("post")
-      .leftJoinAndSelect("post.author", "author")
-      .where("post.isActive = :isActive", { isActive: true })
+  static async listPublic(options: { page?: number; limit?: number; channel?: EditorialChannel; format?: ContentFormat; category?: string; tag?: string; typeSlug?: string } = {}) {
+    const page = Math.max(1, Number(options.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(options.limit) || 10));
+    const qb = publicQuery()
       .loadRelationCountAndMap("post.commentsCount", "post.comments")
       .loadRelationCountAndMap("post.likesCount", "post.likes")
-      .orderBy("post.createdAt", "DESC")
+      .orderBy('post."publishedAt"', "DESC")
       .addOrderBy("post.id", "DESC")
-      .skip((currentPage - 1) * pageSize)
-      .take(pageSize);
-
-    if (typeSlug) {
-      const enumValue = slugToEnum[typeSlug];
-      if (enumValue) qb.andWhere(`post."postType" = :t`, { t: enumValue });
-    }
-
-    const [rows, total] = await qb.getManyAndCount();
-
-    const posts = rows.map((p: any) => ({
-      id: p.id,
-      title: p.title,
-      excerpt: p.content?.slice(0, 200) ?? "",
-      imageUrl: p.imageUrl,
-      createdAt: p.createdAt,
-      author: p.author ? { id: p.author.id, name: p.author.name } : null,
-      likes: p.likesCount ?? 0,
-      commentsCount: p.commentsCount ?? 0,
-      views: typeof p.views === "number" ? p.views : 0,
-    }));
-
-    return { posts, total };
+      .skip((page - 1) * limit)
+      .take(limit);
+    if (options.channel) qb.andWhere("post.channel = :channel", { channel: options.channel });
+    if (options.format) qb.andWhere("post.format = :format", { format: options.format });
+    if (options.category) qb.andWhere("category.slug = :category", { category: normalizeSlug(options.category) });
+    if (options.tag) qb.andWhere("tags.slug = :tag", { tag: normalizeSlug(options.tag) });
+    if (options.typeSlug && slugToEnum[options.typeSlug]) qb.andWhere('post."postType" = :postType', { postType: slugToEnum[options.typeSlug] });
+    const [posts, total] = await qb.getManyAndCount();
+    return { posts, total, page, limit };
   }
 
-  // Filtrar posts por título, categoria, autor ou data
-  static async filterPosts(
-    title?: string,
-    category?: string,
-    author?: string,
-    date?: string,
-  ) {
-    console.log("🛠️ Iniciando a montagem da query para filtrar posts...");
+  static async getPaginated(page = 1, limit = 10, typeSlug?: string) {
+    return this.listPublic({ page, limit, typeSlug });
+  }
 
-    const query = postRepository
-      .createQueryBuilder("post")
-      .leftJoinAndSelect("post.author", "author")
-      .where("post.isActive = :isActive", { isActive: true });
-
-    console.log("🟢 Query inicializada!");
-
-    // 🔍 Filtrar por título
-    if (title) {
-      console.log("📌 Filtrando por título:", title);
-      query.andWhere("post.title ILIKE :title", { title: `%${title}%` });
-    }
-
-    // 🔍 Filtrar por categoria
+  static async filterPosts(title?: string, category?: string, author?: string, date?: string) {
+    const qb = publicQuery();
+    if (title) qb.andWhere("post.title ILIKE :title", { title: `%${title}%` });
     if (category) {
-      console.log("📌 Filtrando por categoria:", category);
-      const enumValue = Object.values(PostType).find(
-        (e) => e.toLowerCase() === category.toLowerCase(),
-      );
-      if (!enumValue) {
-        console.log("❌ Categoria inválida:", category);
-        throw new Error(`Categoria inválida: ${category}`);
-      }
-      query.andWhere(`post."postType" = :category`, { category: enumValue });
+      const legacy = Object.values(PostType).find((value) => value.toLowerCase() === category.toLowerCase());
+      if (legacy) qb.andWhere('post."postType" = :legacy', { legacy });
+      else qb.andWhere("category.slug = :categorySlug", { categorySlug: normalizeSlug(category) });
     }
-
-    // 🔍 Filtrar por autor (name)
-    if (author) {
-      console.log("🔍 Buscando posts pelo autor:", author);
-      query.andWhere("author.name ILIKE :authorName", {
-        authorName: `%${author}%`,
-      });
-    }
-
-    // 🔍 Filtrar por data
-    if (date) {
-      console.log("📌 Filtrando por data:", date);
-      const startDate = new Date(date);
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
-      query.andWhere("post.created_at BETWEEN :startDate AND :endDate", {
-        startDate,
-        endDate,
-      });
-    }
-
-    // 🔎 Log da query final
-    const [sqlQuery, parameters] = query.getQueryAndParameters();
-    console.log("📝 Query SQL Final:", sqlQuery);
-    console.log("📊 Parâmetros da Query:", parameters);
-
-    const result = await query.getMany();
-    console.log("✅ Posts retornados:", result.length);
-
-    return result;
+    if (author) qb.andWhere('authorProfile."displayName" ILIKE :author', { author: `%${author}%` });
+    if (date) qb.andWhere('DATE(post."publishedAt") = :date', { date });
+    return qb.orderBy('post."publishedAt"', "DESC").getMany();
   }
 
-  // Listar posts mais visualizados
   static async getTopViewed(limit: number) {
-    const qb = AppDataSource.getRepository(Post)
-      .createQueryBuilder("post")
-      .leftJoinAndSelect("post.author", "author")
-      .where("post.isActive = :isActive", { isActive: true })
+    return publicQuery()
       .loadRelationCountAndMap("post.commentsCount", "post.comments")
       .loadRelationCountAndMap("post.likesCount", "post.likes")
-      .orderBy("post.views", "DESC")
-      .take(limit);
+      .orderBy("post.isFeatured", "DESC")
+      .addOrderBy("post.featuredPriority", "ASC", "NULLS LAST")
+      .addOrderBy("post.views", "DESC")
+      .take(Math.min(20, Math.max(1, limit)))
+      .getMany();
+  }
 
-    const rows = await qb.getMany();
-    return rows.map((p: any) => ({
-      id: p.id,
-      title: p.title,
-      excerpt: p.content?.slice(0, 200) ?? "",
-      imageUrl: p.imageUrl,
-      createdAt: p.createdAt,
-      author: p.author ? { id: p.author.id, name: p.author.name } : null,
-      likes: p.likesCount ?? 0,
-      commentsCount: p.commentsCount ?? 0,
-      views: typeof p.views === "number" ? p.views : 0,
-    }));
+  static async toggleActive(postId: number, _userId: number, userRole: string) {
+    const post = await this.getAdminPostById(postId);
+    if (userRole !== "admin" && post.author?.id !== _userId) {
+      throw new Error("Apenas o autor ou um admin pode alterar publicação");
+    }
+    if (post.status === EditorialStatus.PUBLISHED) {
+      post.status = EditorialStatus.ARCHIVED;
+      post.isActive = false;
+    } else {
+      post.status = EditorialStatus.PUBLISHED;
+      post.publishedAt = post.publishedAt || new Date();
+      this.validateForPublish(post);
+      post.isActive = true;
+    }
+    return postRepository.save(post);
+  }
+
+  static async deletePost(postId: number, userRole: string) {
+    if (userRole !== "admin") throw new Error("Apenas admins podem deletar posts permanentemente");
+    const post = await postRepository.findOne({ where: { id: postId } });
+    if (!post) throw new Error("Post não encontrado");
+    await postRepository.remove(post);
+    return { message: "Post deletado permanentemente." };
+  }
+
+  static async getTaxonomy() {
+    const [categories, tags, authors] = await Promise.all([
+      AppDataSource.getRepository(Category).find({ where: { isActive: true }, order: { name: "ASC" } }),
+      AppDataSource.getRepository(Tag).find({ order: { name: "ASC" } }),
+      AppDataSource.getRepository(AuthorProfile).find({ where: { isActive: true }, order: { displayName: "ASC" } }),
+    ]);
+    return { categories, tags, authors };
+  }
+
+  static async getSitemapEntries() {
+    const posts = await publicQuery().orderBy('post."publishedAt"', "DESC").getMany();
+    return posts.map((post) => ({ path: canonicalPostPath(post), updatedAt: post.updatedAt }));
   }
 }
