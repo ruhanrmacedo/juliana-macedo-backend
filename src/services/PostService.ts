@@ -271,7 +271,7 @@ export class PostService {
   }
 
   static async getAllPosts() {
-    return publicQuery().orderBy('post."publishedAt"', "DESC").getMany();
+    return publicQuery().orderBy("post.publishedAt", "DESC").getMany();
   }
 
   static async getAdminPosts() {
@@ -324,7 +324,7 @@ export class PostService {
     const qb = publicQuery()
       .loadRelationCountAndMap("post.commentsCount", "post.comments")
       .loadRelationCountAndMap("post.likesCount", "post.likes")
-      .orderBy('post."publishedAt"', "DESC")
+      .orderBy("post.publishedAt", "DESC")
       .addOrderBy("post.id", "DESC")
       .skip((page - 1) * limit)
       .take(limit);
@@ -351,7 +351,7 @@ export class PostService {
     }
     if (author) qb.andWhere('authorProfile."displayName" ILIKE :author', { author: `%${author}%` });
     if (date) qb.andWhere('DATE(post."publishedAt") = :date', { date });
-    return qb.orderBy('post."publishedAt"', "DESC").getMany();
+    return qb.orderBy("post.publishedAt", "DESC").getMany();
   }
 
   static async getTopViewed(limit: number) {
@@ -400,7 +400,7 @@ export class PostService {
   }
 
   static async getSitemapEntries() {
-    const posts = await publicQuery().orderBy('post."publishedAt"', "DESC").getMany();
+    const posts = await publicQuery().orderBy("post.publishedAt", "DESC").getMany();
     return posts.map((post) => ({ path: canonicalPostPath(post), updatedAt: post.updatedAt }));
   }
 }
