@@ -41,11 +41,11 @@ export class User {
   @Column({ name: "auth_version", type: "int", default: 0 })
   authVersion: number;
 
-  @Column({ unique: true })
-  cpf: string;
+  @Column({ type: "varchar", unique: true, nullable: true })
+  cpf?: string | null;
 
-  @Column({ type: "date", name: "data_nascimento" })
-  dataNascimento: Date;
+  @Column({ type: "date", name: "data_nascimento", nullable: true })
+  dataNascimento?: Date | null;
 
   @CreateDateColumn({ name: "created_at", type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
   createdAt: Date;

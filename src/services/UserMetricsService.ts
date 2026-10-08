@@ -169,13 +169,13 @@ export class UserMetricsService {
     }
 
     static interpretTDEE(tdee: number): string {
-        return `Seu gasto calórico diário estimado é de ${tdee.toFixed(0)} kcal. Use esse valor como base para definir sua meta (ex: emagrecimento, manutenção ou ganho de massa).`;
+        return `Seu gasto calórico diário estimado é de ${tdee.toFixed(0)} kcal. Este valor é uma referência educativa e não substitui avaliação individualizada.`;
     }
 
     static interpretMacronutrients(macros: { proteinas: number, carboidratos: number, gorduras: number }) {
         return {
             ...macros,
-            mensagem: "Distribuição sugerida com base em 30% proteínas, 50% carboidratos e 20% gorduras."
+            mensagem: "Exemplo educativo com 30% de proteínas, 50% de carboidratos e 20% de gorduras; não representa prescrição individual."
         };
     }
 
@@ -185,7 +185,7 @@ export class UserMetricsService {
 
     static interpretWaterIntake(waterMl: number): string {
         const litros = (waterMl / 1000).toFixed(2);
-        return `Você deve consumir aproximadamente ${litros} litros de água por dia com base no seu peso corporal.`;
+        return `Estimativa educativa de ${litros} litros de água por dia com base no peso corporal. A necessidade individual pode variar.`;
     }
 
     // IMC
@@ -195,9 +195,7 @@ export class UserMetricsService {
 
     // TDEE (altura em metros; fórmula usa *100 internamente)
     static calculateTDEE(peso: number, alturaM: number, idade: number, sexo: string, nivelAtividade: NivelAtividade): number {
-        const tmb = sexo === "M"
-            ? 66.5 + 13.75 * peso + 5.003 * (alturaM * 100) - 6.75 * idade
-            : 655 + 9.563 * peso + 1.850 * (alturaM * 100) - 4.676 * idade;
+        const tmb = this.calculateTMB(peso, alturaM, idade, sexo);
 
         const multiplicadores: Record<NivelAtividade, number> = {
             [NivelAtividade.SEDENTARIO]: 1.2,

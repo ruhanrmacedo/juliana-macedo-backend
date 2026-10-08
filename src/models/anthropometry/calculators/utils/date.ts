@@ -1,4 +1,4 @@
-export function getAgeYearsAt(dob?: Date, at?: Date): number | null {
+export function getAgeYearsAt(dob?: Date | null, at?: Date): number | null {
   if (!dob) return null;
   const date = at ? new Date(at) : new Date();
   let years = date.getFullYear() - new Date(dob).getFullYear();
@@ -7,7 +7,7 @@ export function getAgeYearsAt(dob?: Date, at?: Date): number | null {
   return years;
 }
 
-export function getAgeMonthsAt(dob?: Date, at?: Date): number | null {
+export function getAgeMonthsAt(dob?: Date | null, at?: Date): number | null {
   if (!dob) return null;
   const d1 = new Date(dob);
   const d2 = at ? new Date(at) : new Date();

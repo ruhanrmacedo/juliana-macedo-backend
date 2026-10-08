@@ -1,4 +1,3 @@
-import { instanceToPlain } from "class-transformer";
 import { AppDataSource } from "../config/ormconfig";
 import { User, UserRole } from "../models/User";
 import bcrypt from "bcrypt";
@@ -7,32 +6,56 @@ import { UserPhoneService } from "./UserPhoneService";
 import { UserEmailService } from "./UserEmailService";
 import { UserAddressService } from "./UserAddressService";
 import { assertValidPassword } from "../utils/passwordPolicy";
+import { toUserAccountDto } from "../serializers/userSerializer";
 
 
 const userRepository = AppDataSource.getRepository(User);
 
 export class UserService {
   // Criar usuário (registro)
-  static async createUser(email: string, name: string, password: string, cpf: string, dataNascimento: Date) {
+  static async createUser(
+    email: string,
+    name: string,
+    password: string,
+    cpf?: string | null,
+    dataNascimento?: Date | null
+  ) {
     const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedName = String(name ?? "").trim();
+
+    if (!normalizedName) throw new Error("Nome é obrigatório");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      throw new Error("E-mail inválido");
+    }
+
     const existingUser = await userRepository.findOne({ where: { email: normalizedEmail } });
     if (existingUser) throw new Error("Email já está em uso");
 
     assertValidPassword(password);
 
+    const normalizedCpf = cpf ? String(cpf).replace(/[^\d]/g, "") : null;
+    if (normalizedCpf && normalizedCpf.length !== 11) {
+      throw new Error("CPF inválido");
+    }
+
+    const normalizedBirthDate = dataNascimento ? new Date(dataNascimento) : null;
+    if (normalizedBirthDate && Number.isNaN(normalizedBirthDate.getTime())) {
+      throw new Error("Data de nascimento inválida");
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = userRepository.create({
       email: normalizedEmail,
-      name,
+      name: normalizedName,
       password: hashedPassword,
       role: UserRole.USER,
-      cpf,
-      dataNascimento,
+      cpf: normalizedCpf,
+      dataNascimento: normalizedBirthDate,
     });
 
     await userRepository.save(user);
 
-    return instanceToPlain(user);
+    return toUserAccountDto(user);
   }
 
   // Buscar usuário pelo email

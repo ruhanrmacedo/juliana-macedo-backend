@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/UserService";
-import axios from "axios";
-import qs from "qs";
 import { AppDataSource } from "../config/ormconfig";
 import { User } from "../models/User";
 import { verifyRecaptcha } from "../utils/recaptcha";
@@ -11,11 +9,37 @@ export class UserController {
   // Rota de Registro
   static async register(req: Request, res: Response) {
     try {
-      const { email, name, password, cpf, dataNascimento } = req.body;
-      const cleanCpf = cpf.replace(/[^\d]/g, "");
-      const parsedDataNascimento = new Date(dataNascimento);
-      const user = await UserService.createUser(email, name, password, cleanCpf, parsedDataNascimento);
-      res.status(201).json(user);
+      const {
+        email,
+        name,
+        password,
+        confirmPassword,
+        captchaToken,
+      } = req.body ?? {};
+
+      if (!name || !email || !password || !confirmPassword) {
+        res.status(400).json({
+          error: "Nome, e-mail, senha e confirmação da senha são obrigatórios.",
+        });
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        res.status(400).json({ error: "A confirmação da senha não confere." });
+        return;
+      }
+
+      const captchaIsValid = await verifyRecaptcha(captchaToken, req);
+      if (!captchaIsValid) {
+        res.status(400).json({ error: "Falha ao verificar reCAPTCHA" });
+        return;
+      }
+
+      const user = await UserService.createUser(email, name, password);
+      res.status(201).json({
+        message: "Conta criada com sucesso.",
+        user,
+      });
       return;
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -168,8 +192,8 @@ export class UserController {
         name: user.name,
         email: user.email,
         role: user.role,
-        cpf: user.cpf,
-        dataNascimento: user.dataNascimento,
+        cpf: user.cpf ?? null,
+        dataNascimento: user.dataNascimento ?? null,
         phones: user.phones,
         addresses: user.addresses,
         emails: user.emails,
