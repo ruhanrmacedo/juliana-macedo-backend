@@ -254,3 +254,23 @@ Desenvolvido por **Ruhan Macedo**.
 ## Licença
 
 Este projeto ainda não possui uma licença pública definida.
+
+## Desenvolvimento com PostgreSQL local
+
+Copie `.env.development.local.example` para `.env.development.local` e configure as credenciais locais e um JWT_SECRET exclusivo de desenvolvimento. O arquivo real é ignorado pelo Git. Não reutilize segredos de produção. O modelo `.env.development.local.example` é versionado apenas com o destino local fixo e campos de credenciais vazios; não é uma configuração pronta para uso. Somente a cópia `.env.development.local`, ignorada pelo Git, deve receber valores reais.
+
+Execute `npm run dev:local`. A API usa a porta 3000, NODE_ENV=development e exclusivamente PostgreSQL em 127.0.0.1:5432, banco juliana_macedo. Pare qualquer API local anterior na porta 3000 antes de iniciar.
+
+O launcher descarta variáveis herdadas de conexão e direciona o dotenv ao arquivo local. O ORM valida o arquivo antes de criar o DataSource, usa destino fixo e não consulta DATABASE_URL. Não há sincronização nem migrations automáticas. O comando é bloqueado no Render; npm start e a configuração padrão de produção permanecem inalterados.
+
+Verificações sem escrita no banco:
+- `node scripts/check-local-config.cjs`: valida o destino e as proteções sem abrir conexão.
+- `node scripts/check-local-schema.cjs`: consulta identidade e metadados em transação somente de leitura.
+
+Não use o Jest padrão para validar um banco com dados que devem ser preservados: o setup existente executa migrations e alguns testes removem registros.
+
+O frontend em http://localhost:8080 deve usar http://localhost:3000. Integrações externas (upload e e-mail) exigem configuração local própria; o comando não copia segredos do .env de produção.
+
+### Pendência conhecida da Fase 2
+
+O upload pelo Cloudinary retornou `Must supply api_key` no ambiente local. Configure a integração somente no arquivo local ignorado pelo Git; não copie segredos de produção. Imagens por URL funcionaram nos testes manuais. O funcionamento do upload em produção não foi confirmado nesta revisão. As pendências preexistentes de TypeScript e lint do frontend estão registradas em `docs/fase-2-pendencias.md` no repositório frontend.

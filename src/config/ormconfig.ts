@@ -1,12 +1,15 @@
 import { DataSource } from "typeorm";
 import dotenv from "dotenv";
+import { localDevelopmentOptions } from "./localDevelopment";
 
-dotenv.config();
+const isLocalDevelopment = process.env.JULIANA_LOCAL_DEV === "1";
+if (!isLocalDevelopment) dotenv.config();
 
 const isTestEnv = process.env.NODE_ENV === "test";
 const isProduction = process.env.NODE_ENV === "production";
 
 export const AppDataSource = new DataSource(
+  isLocalDevelopment ? localDevelopmentOptions() :
   process.env.DATABASE_URL && !isTestEnv
     ? {
       type: "postgres",

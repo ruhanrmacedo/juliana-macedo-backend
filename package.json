@@ -4,6 +4,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --exec ts-node --files src/server.ts",
+    "dev:local": "node scripts/dev-local.cjs",
     "build": "tsc",
     "start": "node dist/server.js",
     "migration:generate": "typeorm migration:generate -d src/config/ormconfig.ts",

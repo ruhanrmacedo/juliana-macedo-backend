@@ -1,0 +1,25 @@
+// Verifica o DataSource sem inicializar conexão ou executar migrations.
+const assert = require("node:assert/strict");
+process.env.NODE_ENV = "development";
+process.env.JULIANA_LOCAL_DEV = "1";
+process.env.DATABASE_URL = "postgres://invalid.invalid/not-used";
+process.env.DB_HOST = "invalid.invalid";
+process.env.DB_PORT = "9999";
+process.env.DB_NAME = "not-used";
+process.env.PGHOST = "invalid.invalid";
+process.env.PGPORT = "9999";
+process.env.PGDATABASE = "not-used";
+require("ts-node/register");
+const { AppDataSource } = require("../src/config/ormconfig");
+const o = AppDataSource.options;
+assert.equal(o.host, "127.0.0.1");
+assert.equal(o.port, 5432);
+assert.equal(o.database, "juliana_macedo");
+assert.equal(o.url, undefined);
+assert.equal(o.synchronize, false);
+assert.equal(o.migrationsRun, false);
+assert.equal(o.ssl, false);
+assert.equal(AppDataSource.isInitialized, false);
+process.env.NODE_ENV = "production";
+assert.throws(() => require("../src/config/localDevelopment").localDevelopmentOptions());
+console.log("PASS: destino fixo, variáveis herdadas ignoradas, migrations e sync desativados; nenhuma conexão aberta.");
