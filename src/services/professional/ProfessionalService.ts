@@ -5,7 +5,7 @@ import { ProfessionalProfile } from "../../models/ProfessionalProfile";
 import { ProfessionalService as ServiceEntity } from "../../models/ProfessionalService";
 import { ProfessionalFaq } from "../../models/ProfessionalFaq";
 import { NotFound } from "../../models/anthropometry/calculators/utils/errors";
-import { INITIAL_AUTHOR_PROFILE_SLUG } from "../../seeds/professionalProfileData";
+import { PROFESSIONAL_AUTHOR_PROFILE_SLUG } from "../../config/professionalProfile";
 import { assertProfessionalProfilePublishable } from "../../utils/professionalContent";
 import {
   toAdminProfessionalFaqDto, toAdminProfessionalProfileDto,
@@ -29,7 +29,7 @@ export class ProfessionalApiService {
     const profile = await reader.getRepository(ProfessionalProfile).findOne({
       where: {
         authorProfile: {
-          slug: INITIAL_AUTHOR_PROFILE_SLUG,
+          slug: PROFESSIONAL_AUTHOR_PROFILE_SLUG,
           ...(publicOnly ? { isActive: true } : {}),
         },
         ...(publicOnly ? { isPublished: true } : {}),
@@ -37,7 +37,7 @@ export class ProfessionalApiService {
       relations: children ? ["authorProfile", "services", "faqs"] : ["authorProfile"],
     });
     if (
-      !profile || profile.authorProfile?.slug !== INITIAL_AUTHOR_PROFILE_SLUG ||
+      !profile || profile.authorProfile?.slug !== PROFESSIONAL_AUTHOR_PROFILE_SLUG ||
       (publicOnly && (!profile.isPublished || !profile.authorProfile.isActive))
     ) {
       throw new NotFound("Perfil profissional indisponível.");
