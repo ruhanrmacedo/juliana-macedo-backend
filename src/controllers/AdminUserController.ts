@@ -6,11 +6,14 @@ import { UserPhoneService } from "../services/UserPhoneService";
 import { UserEmailService } from "../services/UserEmailService";
 import { UserAddressService } from "../services/UserAddressService";
 import { getPasswordPolicyError } from "../utils/passwordPolicy";
+import { assertProfessionalAccountMutation } from "../services/professional/ProfessionalPolicies";
+import { Forbidden } from "../models/anthropometry/calculators/utils/errors";
 
 export class AdminUserController {
     static async updateUser(req: Request, res: Response) {
         try {
             const id = Number(req.params.id);
+            assertProfessionalAccountMutation(id, req.user);
             const repo = AppDataSource.getRepository(User);
             const user = await repo.findOneBy({ id });
             if (!user) { res.status(404).json({ error: "Usuário não encontrado" }); return; }
@@ -54,6 +57,9 @@ export class AdminUserController {
             const { password, ...safe } = saved as any;
             res.json(safe);
         } catch (e: any) {
+            if (e instanceof Forbidden) {
+                res.status(403).json({ error: e.message }); return;
+            }
             res.status(400).json({ error: e.message });
         }
     }
@@ -61,6 +67,7 @@ export class AdminUserController {
     static async setPassword(req: Request, res: Response) {
         try {
             const id = Number(req.params.id);
+            assertProfessionalAccountMutation(id, req.user);
             const { password } = req.body as { password: string };
             const passwordPolicyError = getPasswordPolicyError(password);
             if (passwordPolicyError) {
@@ -75,6 +82,9 @@ export class AdminUserController {
             await repo.save(user);
             res.json({ message: "Senha atualizada com sucesso" });
         } catch (e: any) {
+            if (e instanceof Forbidden) {
+                res.status(403).json({ error: e.message }); return;
+            }
             res.status(400).json({ error: e.message });
         }
     }

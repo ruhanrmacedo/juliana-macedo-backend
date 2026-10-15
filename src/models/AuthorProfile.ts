@@ -1,5 +1,6 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Post } from "./Post";
+import { ProfessionalProfile } from "./ProfessionalProfile";
 
 @Entity("author_profiles")
 export class AuthorProfile {
@@ -26,4 +27,10 @@ export class AuthorProfile {
 
   @OneToMany(() => Post, (post) => post.authorProfile)
   posts: Post[];
+
+  @OneToOne(
+    () => ProfessionalProfile,
+    (professionalProfile) => professionalProfile.authorProfile
+  )
+  professionalProfile?: ProfessionalProfile;
 }

@@ -17,6 +17,8 @@ import adminUserRoutes from "./routes/admin.user.routes";
 import gestationRoutes from "./routes/gestation.routes";
 import mealPlanRoutes from "./routes/mealPlanRoutes";
 import foodRoutes from "./routes/foodRoutes";
+import professionalRoutes from "./routes/professional.routes";
+import adminProfessionalRoutes from "./routes/admin.professional.routes";
 import { responseSanitizer } from "./middleware/responseSanitizer";
 import { PostController } from "./controllers/PostController";
 
@@ -53,6 +55,8 @@ app.use("/admin/users", adminUserRoutes);
 app.use("/gestation", gestationRoutes);
 app.use("/meal-plans", mealPlanRoutes);
 app.use("/foods", foodRoutes);
+app.use("/professional", professionalRoutes);
+app.use("/admin/professional", adminProfessionalRoutes);
 
 
 app.use(

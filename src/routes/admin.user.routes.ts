@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { authMiddleware, checkRole } from "../middleware/authMiddleware";
 import { AdminUserController } from "../controllers/AdminUserController";
+import { professionalAccountMutationAccess } from "../middleware/professionalAccess";
 
 const router = Router();
 router.use(authMiddleware, checkRole(["admin"]));
 
-router.put("/:id", AdminUserController.updateUser);
-router.put("/:id/password", AdminUserController.setPassword);
+router.put("/:id", professionalAccountMutationAccess, AdminUserController.updateUser);
+router.put("/:id/password", professionalAccountMutationAccess, AdminUserController.setPassword);
 
 // phones
 router.get("/:id/phones", AdminUserController.listPhones);
